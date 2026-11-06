@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "id": "layout-b-text",
+  "description": "Two-date text statement with debit and credit columns, DD/MM/YYYY dates, and a multi-line description.",
+  "kind": "text",
+  "sourceFile": "layout-b-text.pdf",
+  "bankName": "Cedar Bank",
+  "accountLabel": "Cedar Bank Travel Card",
+  "accountLast4": "1881",
+  "periodStart": "2026-09-01",
+  "periodEnd": "2026-09-30",
+  "currency": "GBP",
+  "pageCount": 1,
+  "transactions": [
+    {
+      "sourceRowId": "b-001",
+      "transactionDate": "2026-09-01",
+      "postingDate": "2026-09-02",
+      "rawDescription": "TESCO EXPRESS",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "2345",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.798, 0.9346, 0.8207]
+      }
+    },
+    {
+      "sourceRowId": "b-002",
+      "transactionDate": "2026-09-02",
+      "postingDate": "2026-09-03",
+      "rawDescription": "WATERSTONE CAFE",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "875",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.7677, 0.9346, 0.7904]
+      }
+    },
+    {
+      "sourceRowId": "b-003",
+      "transactionDate": "2026-09-04",
+      "postingDate": "2026-09-05",
+      "rawDescription": "LONDON TRANSIT",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "1560",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.7374, 0.9346, 0.7601]
+      }
+    },
+    {
+      "sourceRowId": "b-004",
+      "transactionDate": "2026-09-06",
+      "postingDate": "2026-09-08",
+      "rawDescription": "ONLINE RETAILER ORDER 88421",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "4599",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6907, 0.9346, 0.7298]
+      }
+    },
+    {
+      "sourceRowId": "b-005",
+      "transactionDate": "2026-09-09",
+      "postingDate": "2026-09-10",
+      "rawDescription": "PHARMACY PLUS",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "1899",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6679, 0.9346, 0.6907]
+      }
+    },
+    {
+      "sourceRowId": "b-006",
+      "transactionDate": "2026-09-11",
+      "postingDate": "2026-09-12",
+      "rawDescription": "COUNCIL TAX",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "12500",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6376, 0.9346, 0.6604]
+      }
+    },
+    {
+      "sourceRowId": "b-007",
+      "transactionDate": "2026-09-14",
+      "postingDate": "2026-09-15",
+      "rawDescription": "REFUND - CLOTHING STORE",
+      "transactionType": "refund",
+      "billedAmount": {
+        "amountMinor": "3200",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6073, 0.9346, 0.6301]
+      }
+    },
+    {
+      "sourceRowId": "b-008",
+      "transactionDate": "2026-09-17",
+      "postingDate": "2026-09-18",
+      "rawDescription": "MOBILE PHONE BILL",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "2200",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.577, 0.9346, 0.5997]
+      }
+    },
+    {
+      "sourceRowId": "b-009",
+      "transactionDate": "2026-09-19",
+      "postingDate": "2026-09-20",
+      "rawDescription": "SUPERMARKET",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "5634",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5467, 0.9346, 0.5694]
+      }
+    },
+    {
+      "sourceRowId": "b-010",
+      "transactionDate": "2026-09-22",
+      "postingDate": "2026-09-23",
+      "rawDescription": "CINEMA TICKETS",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "1850",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5164, 0.9346, 0.5391]
+      }
+    },
+    {
+      "sourceRowId": "b-011",
+      "transactionDate": "2026-09-25",
+      "postingDate": "2026-09-26",
+      "rawDescription": "PAYMENT RECEIVED - THANK YOU",
+      "transactionType": "payment",
+      "billedAmount": {
+        "amountMinor": "40000",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.4861, 0.9346, 0.5088]
+      }
+    },
+    {
+      "sourceRowId": "b-012",
+      "transactionDate": "2026-09-28",
+      "postingDate": "2026-09-29",
+      "rawDescription": "ANNUAL ACCOUNT FEE",
+      "transactionType": "fee",
+      "billedAmount": {
+        "amountMinor": "2500",
+        "currency": "GBP",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.4558, 0.9346, 0.4785]
+      }
+    }
+  ],
+  "controls": {
+    "openingBalanceMinor": "50000",
+    "closingBalanceMinor": "42762",
+    "debitTotalMinor": "35962",
+    "creditTotalMinor": "43200",
+    "transactionCount": 12
+  },
+  "statementHash": "231e36512f0d28e6f22ecac9760ddf14ce3dfd062434453c42d4a5cf1b11d6d0"
+}

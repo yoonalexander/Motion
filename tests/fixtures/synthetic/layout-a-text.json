@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "id": "layout-a-text",
+  "description": "Single-date text statement with signed amounts and a simple three-column table.",
+  "kind": "text",
+  "sourceFile": "layout-a-text.pdf",
+  "bankName": "Maple Card",
+  "accountLabel": "Maple Card Visa",
+  "accountLast4": "4242",
+  "periodStart": "2026-09-01",
+  "periodEnd": "2026-09-30",
+  "currency": "CAD",
+  "pageCount": 1,
+  "transactions": [
+    {
+      "sourceRowId": "a-001",
+      "transactionDate": "2026-09-02",
+      "rawDescription": "COFFEE HOUSE DOWNTOWN",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "485",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.798, 0.9346, 0.8207]
+      }
+    },
+    {
+      "sourceRowId": "a-002",
+      "transactionDate": "2026-09-03",
+      "rawDescription": "METRO GROCERY #142",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "8642",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.7677, 0.9346, 0.7904]
+      }
+    },
+    {
+      "sourceRowId": "a-003",
+      "transactionDate": "2026-09-05",
+      "rawDescription": "STREAMING SUBSCRIPTION",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "1699",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.7374, 0.9346, 0.7601]
+      }
+    },
+    {
+      "sourceRowId": "a-004",
+      "transactionDate": "2026-09-07",
+      "rawDescription": "GAS STATION 24",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "5210",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.7071, 0.9346, 0.7298]
+      }
+    },
+    {
+      "sourceRowId": "a-005",
+      "transactionDate": "2026-09-09",
+      "rawDescription": "PHARMACY",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "2375",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6768, 0.9346, 0.6995]
+      }
+    },
+    {
+      "sourceRowId": "a-006",
+      "transactionDate": "2026-09-11",
+      "rawDescription": "BOOKSTORE",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "3150",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6465, 0.9346, 0.6692]
+      }
+    },
+    {
+      "sourceRowId": "a-007",
+      "transactionDate": "2026-09-13",
+      "rawDescription": "RESTAURANT",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "6420",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6162, 0.9346, 0.6389]
+      }
+    },
+    {
+      "sourceRowId": "a-008",
+      "transactionDate": "2026-09-15",
+      "rawDescription": "MONTHLY CARD FEE",
+      "transactionType": "fee",
+      "billedAmount": {
+        "amountMinor": "1200",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5859, 0.9346, 0.6086]
+      }
+    },
+    {
+      "sourceRowId": "a-009",
+      "transactionDate": "2026-09-18",
+      "rawDescription": "REFUND - SPORTS STORE",
+      "transactionType": "refund",
+      "billedAmount": {
+        "amountMinor": "4500",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5556, 0.9346, 0.5783]
+      }
+    },
+    {
+      "sourceRowId": "a-010",
+      "transactionDate": "2026-09-20",
+      "rawDescription": "ONLINE MARKETPLACE",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "3899",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5253, 0.9346, 0.548]
+      }
+    },
+    {
+      "sourceRowId": "a-011",
+      "transactionDate": "2026-09-24",
+      "rawDescription": "PAYMENT THANK YOU",
+      "transactionType": "payment",
+      "billedAmount": {
+        "amountMinor": "50000",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.4949, 0.9346, 0.5177]
+      }
+    },
+    {
+      "sourceRowId": "a-012",
+      "transactionDate": "2026-09-28",
+      "rawDescription": "INTEREST CHARGE",
+      "transactionType": "interest",
+      "billedAmount": {
+        "amountMinor": "325",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.4646, 0.9346, 0.4874]
+      }
+    }
+  ],
+  "controls": {
+    "openingBalanceMinor": "100000",
+    "closingBalanceMinor": "78905",
+    "debitTotalMinor": "33405",
+    "creditTotalMinor": "54500",
+    "transactionCount": 12
+  },
+  "statementHash": "c2502fd4f090ff0ae2a0ab5d69bb9cce6be38a2ca2e0570456515e02df3497b0"
+}

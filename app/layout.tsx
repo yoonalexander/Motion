@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: "Motion — Notion Expense Importer",
+  description:
+    "A browser-first, privacy-conscious importer that turns credit card statement PDFs into categorized Notion transactions.",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-slate-50 text-slate-950 antialiased">{children}</body>
     </html>
   );
 }

@@ -2,17 +2,25 @@
 
 ## Project state
 
-- Pre-implementation repo: planning docs plus an empty directory skeleton from `docs/motion-design.md` §18. There is no application logic, package manifest, CI, or test tooling yet — do not assume commands exist.
+- Phase 0 (foundations) is complete: Next.js 16 App Router shell, TypeScript, Tailwind 4, Vitest/Playwright, CI, Zod schemas, synthetic PDF fixtures, and a mock Notion workspace.
 - Despite the directory/remote name `Motion`, the product is the **Notion Expense Importer**.
 - `docs/motion-design.md` is the authoritative SDD: requirements, data model, architecture, security/privacy rules.
 - `docs/motion-roadmap.md` is the execution plan with hard acceptance gates.
 
+## Commands
+
+- `npm run dev`, `npm run build`, `npm run start`
+- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`
+- `npm run fixtures:generate` regenerates `tests/fixtures/synthetic/`; commit the generated PDFs and JSON.
+- First E2E run only: `npx playwright install chromium`.
+- Before handoff, run format check, lint, typecheck, unit tests, and build. CI runs those first, then Playwright.
+
 ## Starting work
 
-- Start at NEI-001 / Milestone 0, not with product features. One ticket or milestone per change; keep PRs scoped.
-- NEI-001 must establish the foundation: Next.js App Router + TypeScript + Tailwind, lint/format/typecheck, Vitest, Playwright, and CI. Once scripts exist, record the exact commands in `README.md` and this file.
+- Phase 0 is done. Start Phase 1 (NEI-004/005), not product features outside the current roadmap gate. One ticket or milestone per change; keep PRs scoped.
 - Do not start Notion OAuth/writes until the PDF extraction and exception-review milestones are proven; do not start Gemini until the core import works (roadmap Phases 3 and 6; SDD §24).
 - V1 excludes: budgeting dashboard, live bank sync, custom Notion database mapping, receipt photos, multi-statement sessions, public multi-tenant hosting, and FastAPI (SDD §2.3, §6.1).
+- Next.js 16 differs from older versions. Read the relevant guide under `node_modules/next/dist/docs/` before using unfamiliar APIs or changing app structure.
 
 ## Non-negotiable constraints
 
@@ -28,3 +36,13 @@
 - Use Vitest for pure modules and Playwright for UI/E2E, backed by synthetic or properly anonymized fixtures.
 - Never commit real bank statements, account numbers, names, or transaction histories; `.env.example` must contain placeholders only.
 - Treat the roadmap's milestone gates as the acceptance bar. Do not claim a gate passed without fixture results, E2E traces, or other reproducible evidence.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

@@ -4,9 +4,7 @@ A free-first, privacy-conscious, browser-first web app that turns credit card st
 
 ## Status
 
-**Planning complete; implementation not started.** This repository currently contains the design docs and an empty project skeleton matching the planned structure. There is no application logic, package manifest, CI, or test tooling yet, so there are no install, build, or test commands to run.
-
-Implementation follows the roadmap, starting with NEI-001 (Milestone 0): scaffold the Next.js app, add TypeScript and Tailwind, then set up linting, formatting, type checking, Vitest, Playwright, and CI.
+**Phase 0 complete (foundations).** The repository now has a Next.js App Router + TypeScript + Tailwind application shell, lint/format/typecheck tooling, Vitest and Playwright coverage, CI with secret scanning, Zod transaction/statement schemas, three synthetic PDF fixtures, and a mock Notion workspace. PDF extraction and the review UI begin in Phase 1.
 
 ## Planned capabilities
 
@@ -29,15 +27,15 @@ Implementation follows the roadmap, starting with NEI-001 (Milestone 0): scaffol
 
 ## Planned stack
 
-| Area | Choice |
-|---|---|
-| Application | Next.js App Router, TypeScript, Tailwind CSS |
-| Validation | Zod |
-| PDF processing | PDF.js (`pdfjs-dist`) |
-| OCR | Tesseract.js in a browser worker |
-| Testing | Vitest, Playwright, fixture-based golden tests |
-| Notion | Official SDK or REST API, pinned to `2026-03-11` |
-| AI (optional) | Gemini via a guarded server route |
+| Area           | Choice                                           |
+| -------------- | ------------------------------------------------ |
+| Application    | Next.js App Router, TypeScript, Tailwind CSS     |
+| Validation     | Zod                                              |
+| PDF processing | PDF.js (`pdfjs-dist`)                            |
+| OCR            | Tesseract.js in a browser worker                 |
+| Testing        | Vitest, Playwright, fixture-based golden tests   |
+| Notion         | Official SDK or REST API, pinned to `2026-03-11` |
+| AI (optional)  | Gemini via a guarded server route                |
 
 ## Documentation
 
@@ -47,7 +45,28 @@ Implementation follows the roadmap, starting with NEI-001 (Milestone 0): scaffol
 
 ## Getting started
 
-Not available yet. Setup instructions, environment variables, and exact commands will be added with NEI-001. `.env.example` is currently a placeholder; never commit real credentials, bank statements, or personal financial data.
+Requires Node.js 22.13+ and npm 10+.
+
+```bash
+npm install
+cp .env.example .env.local   # PowerShell: Copy-Item .env.example .env.local
+npm run dev
+```
+
+The app runs at <http://localhost:3000>. `.env.example` contains safe placeholders; `.env.local` is ignored by Git. Never commit real credentials, bank statements, or personal financial data.
+
+Validation commands:
+
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e   # first run: npx playwright install chromium
+```
+
+Synthetic fixtures live in `tests/fixtures/synthetic/`. Regenerate them with `npm run fixtures:generate`; the generated PDFs and ground-truth JSON are committed. The mock Notion workspace is in `tests/fixtures/notion/workspace.json`.
 
 ## License
 

@@ -4,7 +4,7 @@
 **Date:** November 4, 2026  
 **Source:** [motion-design.md](motion-design.md) (SDD v1.0)  
 **Developer:** Solo developer, Codex-assisted  
-**Status:** Proposed execution plan
+**Status:** In progress — Phase 0 complete (2026-11-06)
 
 ## 1. Executive plan
 
@@ -52,14 +52,16 @@ Build a browser-first PDF-to-Notion importer in **18 sequential weeks**, assumin
 
 **Goal:** Establish an inspectable foundation before experimenting with banks.
 
-- [ ] Initialize Next.js App Router, TypeScript, Tailwind and a small component library; add lint/format/typecheck.
-- [ ] Configure Vitest for pure modules, Playwright for UI and a CI workflow to run all checks.
-- [ ] Define `Money` (integer minor units), `ParsedTransaction`, `PdfAnchor`, `Statement`, classification flags, and Zod schemas.
-- [ ] Establish browser/server module boundaries so PDF bytes cannot accidentally reach API routes.
-- [ ] Create **three structurally different synthetic bank PDFs** with ground-truth JSON and bounding-box expectations; include one scanned rendition. Keep personal bank statements out of Git.
-- [ ] Set up `.env.example`, local secrets guidance and automated secret scanning; add mock Notion fixtures.
+- [x] Initialize Next.js App Router, TypeScript, Tailwind and a small component library; add lint/format/typecheck.
+- [x] Configure Vitest for pure modules, Playwright for UI and a CI workflow to run all checks.
+- [x] Define `Money` (integer minor units), `ParsedTransaction`, `PdfAnchor`, `Statement`, classification flags, and Zod schemas.
+- [x] Establish browser/server module boundaries so PDF bytes cannot accidentally reach API routes.
+- [x] Create **three structurally different synthetic bank PDFs** with ground-truth JSON and bounding-box expectations; include one scanned rendition. Keep personal bank statements out of Git.
+- [x] Set up `.env.example`, local secrets guidance and automated secret scanning; add mock Notion fixtures.
 
 **Exit gate:** A fresh clone starts locally, `typecheck`, lint, tests and build pass, and a fixture test can load expected transaction metadata. **Demo:** empty application shell plus passing fixture tests.
+
+**Status:** Complete (2026-11-06). Verified with `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` (31 tests), `npm run build`, and `npm run test:e2e`.
 
 ### Phase 1. Browser-local PDF engine (Weeks 2–4)
 
@@ -293,4 +295,4 @@ At each week end, record: **What works? What failed? What was measured? What is 
 
 The local release is successful when a user can launch the website, securely connect their own Notion finance template, upload a text or scanned credit card statement, discover uncertain or missing transaction regions without scanning the entire document, correct exceptions, see a transparent final preview, and create only approved records in Notion. Repeated and interrupted imports must not silently duplicate transactions, and a batch undo must preview exactly what will be changed. The website retains neither original documents nor an independent financial transaction ledger. Gemini may be disabled without breaking this flow.
 
-**Next action:** Start **NEI-001**, then **NEI-002/003**. Do not begin OAuth, Gemini or elaborate Notion dashboards before the PDF engine's first proven milestone.
+**Next action:** Start **Phase 1 / NEI-004** (browser PDF.js viewer), then **NEI-005/006**. Do not begin OAuth, Gemini or elaborate Notion dashboards before the PDF engine's first proven milestone.

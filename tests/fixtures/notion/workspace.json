@@ -1,0 +1,193 @@
+{
+  "templateVersion": "1.0.0",
+  "workspaceId": "mock-workspace",
+  "dataSources": {
+    "transactions": {
+      "id": "mock-transactions",
+      "name": "Transactions",
+      "properties": {
+        "Name": {
+          "id": "title",
+          "type": "title"
+        },
+        "Transaction Date": {
+          "id": "date",
+          "type": "date"
+        },
+        "Posting Date": {
+          "id": "posting_date",
+          "type": "date"
+        },
+        "Type": {
+          "id": "type",
+          "type": "select"
+        },
+        "Category": {
+          "id": "category",
+          "type": "select"
+        },
+        "Account": {
+          "id": "account",
+          "type": "relation"
+        },
+        "Billed Amount": {
+          "id": "billed_amount",
+          "type": "number"
+        },
+        "Billed Currency": {
+          "id": "billed_currency",
+          "type": "select"
+        },
+        "Original Amount": {
+          "id": "original_amount",
+          "type": "number"
+        },
+        "Original Currency": {
+          "id": "original_currency",
+          "type": "select"
+        },
+        "Description": {
+          "id": "description",
+          "type": "rich_text"
+        },
+        "Source": {
+          "id": "source",
+          "type": "select"
+        },
+        "Import Batch": {
+          "id": "import_batch",
+          "type": "relation"
+        },
+        "Source Row ID": {
+          "id": "source_row_id",
+          "type": "rich_text"
+        },
+        "Fingerprint": {
+          "id": "fingerprint",
+          "type": "rich_text"
+        },
+        "Review Note": {
+          "id": "review_note",
+          "type": "rich_text"
+        }
+      }
+    },
+    "accounts": {
+      "id": "mock-accounts",
+      "name": "Accounts",
+      "properties": {
+        "Account Name": {
+          "id": "title",
+          "type": "title"
+        },
+        "Institution": {
+          "id": "institution",
+          "type": "rich_text"
+        },
+        "Account Type": {
+          "id": "account_type",
+          "type": "select"
+        },
+        "Last 4": {
+          "id": "last4",
+          "type": "rich_text"
+        },
+        "Primary Currency": {
+          "id": "primary_currency",
+          "type": "select"
+        },
+        "Active": {
+          "id": "active",
+          "type": "checkbox"
+        }
+      }
+    },
+    "imports": {
+      "id": "mock-imports",
+      "name": "Imports",
+      "properties": {
+        "Batch Name": {
+          "id": "title",
+          "type": "title"
+        },
+        "Batch ID": {
+          "id": "batch_id",
+          "type": "rich_text"
+        },
+        "Statement Hash": {
+          "id": "statement_hash",
+          "type": "rich_text"
+        },
+        "Account": {
+          "id": "account",
+          "type": "relation"
+        },
+        "Period Start": {
+          "id": "period_start",
+          "type": "date"
+        },
+        "Period End": {
+          "id": "period_end",
+          "type": "date"
+        },
+        "Status": {
+          "id": "status",
+          "type": "select"
+        },
+        "Created On": {
+          "id": "created_on",
+          "type": "created_time"
+        },
+        "Expected Count": {
+          "id": "expected_count",
+          "type": "number"
+        },
+        "Imported Count": {
+          "id": "imported_count",
+          "type": "number"
+        },
+        "Skipped Count": {
+          "id": "skipped_count",
+          "type": "number"
+        },
+        "Failed Count": {
+          "id": "failed_count",
+          "type": "number"
+        },
+        "Template Version": {
+          "id": "template_version",
+          "type": "rich_text"
+        }
+      }
+    }
+  },
+  "categories": [
+    "Groceries",
+    "Dining",
+    "Transportation",
+    "Utilities",
+    "Subscriptions",
+    "Retail",
+    "Fees",
+    "Interest",
+    "Other"
+  ],
+  "accounts": [
+    {
+      "id": "acct-main",
+      "name": "Main Visa",
+      "currency": "CAD",
+      "type": "credit_card",
+      "last4": "4242",
+      "active": true
+    },
+    {
+      "id": "acct-gbp",
+      "name": "Travel Card",
+      "currency": "GBP",
+      "type": "credit_card",
+      "last4": "1881",
+      "active": true
+    }
+  ]
+}

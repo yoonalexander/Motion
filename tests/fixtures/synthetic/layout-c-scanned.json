@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "id": "layout-c-scanned",
+  "description": "Image-only scanned statement with a running balance and no embedded text layer.",
+  "kind": "scanned",
+  "sourceFile": "layout-c-scanned.pdf",
+  "bankName": "Harbour Credit Union",
+  "accountLabel": "Harbour Credit Union Visa",
+  "accountLast4": "7310",
+  "periodStart": "2026-10-01",
+  "periodEnd": "2026-10-31",
+  "currency": "USD",
+  "pageCount": 1,
+  "transactions": [
+    {
+      "sourceRowId": "c-001",
+      "transactionDate": "2026-10-02",
+      "rawDescription": "HARBOUR COFFEE",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "425",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.7298, 0.9346, 0.7677]
+      }
+    },
+    {
+      "sourceRowId": "c-002",
+      "transactionDate": "2026-10-03",
+      "rawDescription": "CITY MARKET",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "7810",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6869, 0.9346, 0.7247]
+      }
+    },
+    {
+      "sourceRowId": "c-003",
+      "transactionDate": "2026-10-05",
+      "rawDescription": "WEB SERVICES",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "1499",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.6439, 0.9346, 0.6818]
+      }
+    },
+    {
+      "sourceRowId": "c-004",
+      "transactionDate": "2026-10-06",
+      "rawDescription": "FUEL STOP 18",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "4875",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.601, 0.9346, 0.6389]
+      }
+    },
+    {
+      "sourceRowId": "c-005",
+      "transactionDate": "2026-10-08",
+      "rawDescription": "CORNER PHARMACY",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "2140",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5581, 0.9346, 0.596]
+      }
+    },
+    {
+      "sourceRowId": "c-006",
+      "transactionDate": "2026-10-10",
+      "rawDescription": "HARDWARE STORE",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "6799",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.5152, 0.9346, 0.553]
+      }
+    },
+    {
+      "sourceRowId": "c-007",
+      "transactionDate": "2026-10-12",
+      "rawDescription": "BISTRO",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "9220",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.4722, 0.9346, 0.5101]
+      }
+    },
+    {
+      "sourceRowId": "c-008",
+      "transactionDate": "2026-10-14",
+      "rawDescription": "LATE PAYMENT FEE",
+      "transactionType": "fee",
+      "billedAmount": {
+        "amountMinor": "3500",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.4293, 0.9346, 0.4672]
+      }
+    },
+    {
+      "sourceRowId": "c-009",
+      "transactionDate": "2026-10-17",
+      "rawDescription": "REFUND - HOME GOODS",
+      "transactionType": "refund",
+      "billedAmount": {
+        "amountMinor": "2750",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.3864, 0.9346, 0.4242]
+      }
+    },
+    {
+      "sourceRowId": "c-010",
+      "transactionDate": "2026-10-19",
+      "rawDescription": "ONLINE BOOKS",
+      "transactionType": "purchase",
+      "billedAmount": {
+        "amountMinor": "1899",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.3434, 0.9346, 0.3813]
+      }
+    },
+    {
+      "sourceRowId": "c-011",
+      "transactionDate": "2026-10-23",
+      "rawDescription": "PAYMENT THANK YOU",
+      "transactionType": "payment",
+      "billedAmount": {
+        "amountMinor": "60000",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.3005, 0.9346, 0.3384]
+      }
+    },
+    {
+      "sourceRowId": "c-012",
+      "transactionDate": "2026-10-27",
+      "rawDescription": "INTEREST CHARGE",
+      "transactionType": "interest",
+      "billedAmount": {
+        "amountMinor": "410",
+        "currency": "USD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0654, 0.2576, 0.9346, 0.2955]
+      }
+    }
+  ],
+  "controls": {
+    "openingBalanceMinor": "250000",
+    "closingBalanceMinor": "225827",
+    "debitTotalMinor": "38577",
+    "creditTotalMinor": "62750",
+    "transactionCount": 12
+  },
+  "statementHash": "c6ea77d9c732611226281693c1e7063d7a8786ea06723390ccb1accd8490609d"
+}

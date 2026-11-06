@@ -1,0 +1,12 @@
+title = "Motion secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documentation and synthetic fixtures contain no real secrets"
+paths = [
+  '''docs/.*''',
+  '''tests/fixtures/.*''',
+  '''package-lock\.json''',
+]
