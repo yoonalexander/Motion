@@ -4,7 +4,7 @@ A free-first, privacy-conscious, browser-first web app that turns credit card st
 
 ## Status
 
-**Planning complete; implementation not started.** This repository currently contains the software design document and development roadmap. There is no application code, package manifest, CI, or test tooling yet, so there are no install, build, or test commands to run.
+**Planning complete; implementation not started.** This repository currently contains the design docs and an empty project skeleton matching the planned structure. There is no application logic, package manifest, CI, or test tooling yet, so there are no install, build, or test commands to run.
 
 Implementation follows the roadmap, starting with NEI-001 (Milestone 0): scaffold the Next.js app, add TypeScript and Tailwind, then set up linting, formatting, type checking, Vitest, Playwright, and CI.
 
@@ -41,8 +41,8 @@ Implementation follows the roadmap, starting with NEI-001 (Milestone 0): scaffol
 
 ## Documentation
 
-- [Software design document](Notion_Expense_Importer_Design_Document.md) — authoritative requirements, architecture, data model, and privacy/security rules.
-- [Development roadmap](Notion_Expense_Importer_Development_Roadmap.md) — phases, acceptance gates, and initial implementation tickets.
+- [Software design document](docs/motion-design.md) — authoritative requirements, architecture, data model, and privacy/security rules.
+- [Development roadmap](docs/motion-roadmap.md) — phases, acceptance gates, and initial implementation tickets.
 - [Agent instructions](AGENTS.md) — repository constraints and working conventions for coding agents.
 
 ## Getting started

@@ -2,10 +2,10 @@
 
 ## Project state
 
-- Pre-implementation repo: only two planning docs and a placeholder `.env.example`. There is no source code, package manifest, CI, or test tooling yet — do not assume commands or paths exist.
+- Pre-implementation repo: planning docs plus an empty directory skeleton from `docs/motion-design.md` §18. There is no application logic, package manifest, CI, or test tooling yet — do not assume commands exist.
 - Despite the directory/remote name `Motion`, the product is the **Notion Expense Importer**.
-- `Notion_Expense_Importer_Design_Document.md` is the authoritative SDD: requirements, data model, architecture, security/privacy rules.
-- `Notion_Expense_Importer_Development_Roadmap.md` is the execution plan with hard acceptance gates.
+- `docs/motion-design.md` is the authoritative SDD: requirements, data model, architecture, security/privacy rules.
+- `docs/motion-roadmap.md` is the execution plan with hard acceptance gates.
 
 ## Starting work
 

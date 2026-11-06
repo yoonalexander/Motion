@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Date:** November 4, 2026  
-**Source:** `Notion_Expense_Importer_Design_Document.md` (SDD v1.0)  
+**Source:** [motion-design.md](motion-design.md) (SDD v1.0)  
 **Developer:** Solo developer, Codex-assisted  
 **Status:** Proposed execution plan
 

@@ -814,7 +814,7 @@ notion-expense-importer/
 │   ├── privacy/
 │   └── e2e/
 ├── docs/
-│   ├── design.md
+│   ├── motion-design.md
 │   ├── privacy.md
 │   ├── template-schema.md
 │   └── testing.md
