@@ -70,4 +70,4 @@ Synthetic fixtures live in `tests/fixtures/synthetic/`. Regenerate them with `np
 
 ## License
 
-Not yet selected. An open-source license will be chosen before the first public release (roadmap Phase 8).
+Not yet selected. An open-source license will be chosen before the first public release (roadmap Phase 8). Will do in the future. 
