@@ -1,7 +1,45 @@
 import "client-only";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure the PDF.js worker source so it loads from our public directory.
+// This keeps all PDF processing browser-local (SDD §6.2).
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+
+export interface PDFLoadResult {
+  document: pdfjsLib.PDFDocumentProxy;
+  numPages: number;
+}
 
 /**
- * Browser-only PDF entrypoint. Never import this module from API routes or
- * server code; PDF bytes and page images must stay in the browser (SDD §6.2).
+ * Loads a PDF file from the browser's File object into a PDF.js document.
+ * Never uploads raw PDF bytes to the backend.
  */
-export const PDF_ENGINE_BOUNDARY = "browser-only" as const;
+export async function loadPDF(file: File): Promise<PDFLoadResult> {
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const document = await loadingTask.promise;
+  return { document, numPages: document.numPages };
+}
+
+/**
+ * Renders a PDF page to an HTML canvas element at the given scale.
+ */
+export async function renderPageToCanvas(
+  page: pdfjsLib.PDFPageProxy,
+  canvas: HTMLCanvasElement,
+  scale: number = 1
+): Promise<void> {
+  const viewport = page.getViewport({ scale });
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Could not get 2D rendering context from canvas");
+  }
+
+  await page.render({
+    canvasContext: context,
+    viewport,
+  }).promise;
+}

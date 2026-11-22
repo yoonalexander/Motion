@@ -24,6 +24,7 @@ export default defineConfig([
     "playwright-report/**",
     "test-results/**",
     "next-env.d.ts",
+    "node_modules/**",
   ]),
   {
     files: ["app/api/**/*.{ts,tsx}"],

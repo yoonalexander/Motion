@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PDFViewer } from "@/components/pdf-viewer/PDFViewer";
 
 const foundations = [
   { label: "Next.js App Router + TypeScript", status: "Ready" },
@@ -41,8 +42,17 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>PDF Viewer (Phase 1)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PDFViewer />
+        </CardContent>
+      </Card>
+
       <p className="text-sm leading-6 text-slate-500">
-        The import workflow, PDF viewer, and Notion connection are intentionally not implemented
+        The import workflow, Notion connection, and reconciliation are intentionally not implemented
         yet. See <code className="rounded bg-slate-200 px-1.5 py-0.5">docs/motion-roadmap.md</code>{" "}
         for the next milestone.
       </p>
