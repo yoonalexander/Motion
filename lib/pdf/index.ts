@@ -18,6 +18,22 @@ export {
   type ExtractedPage,
   type ExtractedToken,
 } from "./text-extractor";
+export {
+  reconstructDocument,
+  reconstructPage,
+  reconstructLines,
+  detectTables,
+  detectCandidateRows,
+  rowToAnchor,
+  lineToAnchor,
+  type TextLine,
+  type DetectedTable,
+  type CandidateTransactionRow,
+  type PageReconstruction,
+  type ReconstructionResult,
+  type ReconstructionConfig,
+  defaultConfig,
+} from "./text-reconstructor";
 
 /**
  * Loads a PDF file from the browser's File object into a PDF.js document.
