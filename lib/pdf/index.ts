@@ -10,6 +10,15 @@ export interface PDFLoadResult {
   numPages: number;
 }
 
+export {
+  extractDocumentText,
+  extractPageText,
+  tokenToAnchor,
+  type ExtractionResult,
+  type ExtractedPage,
+  type ExtractedToken,
+} from "./text-extractor";
+
 /**
  * Loads a PDF file from the browser's File object into a PDF.js document.
  * Never uploads raw PDF bytes to the backend.
