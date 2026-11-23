@@ -9,19 +9,28 @@ import {
   loadPDF,
   extractDocumentText,
   reconstructDocument,
+  parseDocumentCandidates,
   type ExtractionResult,
   type ExtractedToken,
   type TextLine,
   type CandidateTransactionRow,
+  type ParsedCandidate,
 } from "@/lib/pdf";
 
-type ViewMode = "tokens" | "lines" | "tables" | "candidates" | "unmatched";
+type ViewMode =
+  | "tokens"
+  | "lines"
+  | "tables"
+  | "candidates"
+  | "parsed"
+  | "unmatched";
 
 const VIEW_MODES: { value: ViewMode; label: string }[] = [
   { value: "tokens", label: "Tokens" },
   { value: "lines", label: "Lines" },
   { value: "tables", label: "Tables" },
   { value: "candidates", label: "Candidates" },
+  { value: "parsed", label: "Parsed" },
   { value: "unmatched", label: "Unmatched" },
 ];
 
@@ -49,6 +58,9 @@ export function TextExtractionDebug({
   const [selectedLine, setSelectedLine] = useState<TextLine | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<
     CandidateTransactionRow | null
+  >(null);
+  const [selectedParsedCandidate, setSelectedParsedCandidate] = useState<
+    ParsedCandidate | null
   >(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -141,11 +153,17 @@ export function TextExtractionDebug({
     };
   }, [pdfResult, currentPage, numPages, scale]);
 
+  // Compute parsed transactions during render to avoid setState-in-effect issues
+  const parsed = reconstruction
+    ? parseDocumentCandidates(reconstruction, {})
+    : null;
+
   const handlePrevPage = useCallback(() => {
     setCurrentPage((prev) => (prev > 1 ? prev - 1 : prev));
     setSelectedToken(null);
     setSelectedLine(null);
     setSelectedCandidate(null);
+    setSelectedParsedCandidate(null);
   }, []);
 
   const handleNextPage = useCallback(() => {
@@ -153,6 +171,7 @@ export function TextExtractionDebug({
     setSelectedToken(null);
     setSelectedLine(null);
     setSelectedCandidate(null);
+    setSelectedParsedCandidate(null);
   }, [numPages]);
 
   const handleZoomIn = useCallback(() => {
@@ -181,7 +200,16 @@ export function TextExtractionDebug({
     setSelectedCandidate(candidate);
     setSelectedToken(null);
     setSelectedLine(null);
+    setSelectedParsedCandidate(null);
     setViewMode("candidates");
+  }, []);
+
+  const handleSelectParsedCandidate = useCallback((parsedCandidate: ParsedCandidate) => {
+    setSelectedParsedCandidate(parsedCandidate);
+    setSelectedToken(null);
+    setSelectedLine(null);
+    setSelectedCandidate(null);
+    setViewMode("parsed");
   }, []);
 
   const pageTokens =
@@ -192,6 +220,9 @@ export function TextExtractionDebug({
   const pageLines = pageReconstruction?.lines ?? [];
   const pageTables = pageReconstruction?.tables ?? [];
   const pageCandidates = pageReconstruction?.candidates ?? [];
+  const pageParsedCandidates = parsed?.candidates.filter(
+    (c) => c.page === currentPage
+  ) ?? [];
   const pagesWithoutText = extraction?.pages.filter((p) => p.tokens.length === 0) ?? [];
 
   const resetFile = useCallback(() => {
@@ -205,6 +236,7 @@ export function TextExtractionDebug({
     setSelectedToken(null);
     setSelectedLine(null);
     setSelectedCandidate(null);
+    setSelectedParsedCandidate(null);
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext("2d");
       if (ctx) {
@@ -616,6 +648,85 @@ export function TextExtractionDebug({
               </Card>
             )}
 
+            {viewMode === "parsed" && parsed && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Parsed Transactions on page {currentPage}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 max-h-96 overflow-y-auto">
+                  {pageParsedCandidates.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">
+                      No parsed transactions on this page
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {pageParsedCandidates.map((parsedCandidate) => (
+                        <li
+                          key={parsedCandidate.rowId}
+                          onClick={() => handleSelectParsedCandidate(parsedCandidate)}
+                          className={`cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors group ${
+                            selectedParsedCandidate?.rowId === parsedCandidate.rowId
+                              ? "bg-slate-100 border border-slate-500"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex justify-between text-xs">
+                            <span className="font-mono text-slate-900 truncate">
+                              {parsedCandidate.str}
+                            </span>
+                            <Badge
+                              className={`text-[10px] capitalize ${
+                                parsedCandidate.status === "successfully_parsed"
+                                  ? "border-slate-300 bg-slate-100 text-slate-700"
+                                  : parsedCandidate.status === "needs_review"
+                                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                                    : parsedCandidate.status === "partially_parsed"
+                                      ? "border-slate-300 bg-slate-100 text-slate-700"
+                                      : "border-red-200 bg-red-50 text-red-700"
+                              }`}
+                            >
+                              {parsedCandidate.status.replace(/_/g, " ")}
+                            </Badge>
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            [{parsedCandidate.bbox.map((v) => v.toFixed(3)).join(", ")}]
+                          </div>
+                          {parsedCandidate.transaction && (
+                            <div className="flex gap-1 mt-1">
+                              <span className="text-[10px] text-slate-600 font-mono">
+                                {parsedCandidate.transaction.transactionDate ?? "—"}
+                              </span>
+                              <span className="text-[10px] text-slate-600 font-mono">
+                                {parsedCandidate.transaction.billedAmount.amountMinor}
+                                {parsedCandidate.transaction.billedAmount.currency}
+                              </span>
+                              <span className="text-[10px] text-slate-600 font-mono capitalize">
+                                {parsedCandidate.transaction.transactionType}
+                              </span>
+                            </div>
+                          )}
+                          {parsedCandidate.flags.length > 0 && (
+                            <div className="text-[10px] text-amber-600 mt-0.5">
+                              {parsedCandidate.flags.join(", ")}
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="mt-2 pt-2 border-t border-slate-200">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-600">Diagnostics</span>
+                      <span className="font-medium">
+                        {parsed.diagnostics.filter((d) => d.startsWith(`p${currentPage}:`))
+                          .length}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {viewMode === "unmatched" && pageReconstruction && (
               <Card>
                 <CardHeader>
@@ -850,17 +961,158 @@ export function TextExtractionDebug({
                         </span>
                       </div>
                     )}
-                    <Button
-                      onClick={() => setSelectedCandidate(null)}
-                      variant="secondary"
-                    >
-                      Clear selection
-                    </Button>
+              <Button
+                onClick={() => setSelectedCandidate(null)}
+                variant="secondary"
+              >
+                Clear selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedParsedCandidate && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Selected Parsed Transaction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Text</span>
+                <span className="font-mono truncate">{selectedParsedCandidate.str}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Page</span>
+                <span className="font-medium">{selectedParsedCandidate.page}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Row ID</span>
+                <span className="font-mono text-xs">{selectedParsedCandidate.rowId}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Status</span>
+                <Badge
+                  className={`text-[10px] capitalize ${
+                    selectedParsedCandidate.status === "successfully_parsed"
+                      ? "border-slate-300 bg-slate-100 text-slate-700"
+                      : selectedParsedCandidate.status === "needs_review"
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : selectedParsedCandidate.status === "partially_parsed"
+                          ? "border-slate-300 bg-slate-100 text-slate-700"
+                          : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {selectedParsedCandidate.status.replace(/_/g, " ")}
+                </Badge>
+              </div>
+              {selectedParsedCandidate.transaction && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Transaction Date</span>
+                    <span className="font-medium">
+                      {selectedParsedCandidate.transaction.transactionDate ?? "—"}
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Posting Date</span>
+                    <span className="font-medium">
+                      {selectedParsedCandidate.transaction.postingDate ?? "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Raw Description</span>
+                    <span className="font-mono truncate">
+                      {selectedParsedCandidate.transaction.rawDescription}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Normalized Merchant</span>
+                    <span className="font-mono truncate">
+                      {selectedParsedCandidate.transaction.normalizedMerchant ?? "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Transaction Type</span>
+                    <span className="font-medium capitalize">
+                      {selectedParsedCandidate.transaction.transactionType}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Billed Amount</span>
+                    <span className="font-medium">
+                      {selectedParsedCandidate.transaction.billedAmount.amountMinor}
+                      {selectedParsedCandidate.transaction.billedAmount.currency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Source</span>
+                    <span className="font-medium">
+                      {selectedParsedCandidate.transaction.source}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Review Status</span>
+                    <span className="font-medium capitalize">
+                      {selectedParsedCandidate.transaction.reviewStatus}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Temporary ID</span>
+                    <span className="font-mono text-xs">
+                      {selectedParsedCandidate.transaction.temporaryId}
+                    </span>
+                  </div>
+                  {selectedParsedCandidate.transaction.sourceAnchor && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Source Anchor</span>
+                      <span className="font-mono text-xs">
+                        p{selectedParsedCandidate.transaction.sourceAnchor.page}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+              {selectedParsedCandidate.flags.length > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Flags</span>
+                  <span className="font-mono text-xs text-amber-600">
+                    {selectedParsedCandidate.flags.join(", ")}
+                  </span>
+                </div>
+              )}
+              {selectedParsedCandidate.diagnostics.length > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Diagnostics</span>
+                  <span className="font-mono text-xs text-amber-600">
+                    {selectedParsedCandidate.diagnostics.join(", ")}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Raw Fields</span>
+                <Button
+                  onClick={() => {
+                    alert(JSON.stringify(selectedParsedCandidate.rawFields, null, 2));
+                  }}
+                  variant="secondary"
+                  className="text-xs text-slate-600 hover:text-slate-900"
+                >
+                  inspect
+                </Button>
+              </div>
+              <Button
+                onClick={() => setSelectedParsedCandidate(null)}
+                variant="secondary"
+              >
+                Clear selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+        </div>
         </div>
       )}
 

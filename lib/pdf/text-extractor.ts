@@ -142,11 +142,13 @@ export async function extractPageText(
       continue;
     }
 
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
     const bbox: [number, number, number, number] = normalizedBboxSchema.parse([
-      minX / pageWidth,
-      minY / pageHeight,
-      maxX / pageWidth,
-      maxY / pageHeight,
+      clamp01(minX / pageWidth),
+      clamp01(minY / pageHeight),
+      clamp01(maxX / pageWidth),
+      clamp01(maxY / pageHeight),
     ]);
 
     tokens.push({
@@ -154,8 +156,8 @@ export async function extractPageText(
       page: pageNumber,
       tokenId: `p${pageNumber}-t${tokenIndex++}`,
       bbox,
-      x: e / pageWidth,
-      y: f / pageHeight,
+      x: clamp01(e / pageWidth),
+      y: clamp01(f / pageHeight),
       width: maxX - minX,
       height: maxY - minY,
       hasEOL: item.hasEOL,

@@ -34,6 +34,19 @@ export {
   type ReconstructionConfig,
   defaultConfig,
 } from "./text-reconstructor";
+export {
+  parseCandidateRow,
+  parseDocumentCandidates,
+  parseDate,
+  parseAmount,
+  inferTransactionType,
+  extractMerchantDescription,
+  type StatementContext,
+  type ParsedCandidate,
+  type ParsingStatus,
+  type RawParsedFields,
+  type ParseResult,
+} from "./transaction-parser";
 
 /**
  * Loads a PDF file from the browser's File object into a PDF.js document.
