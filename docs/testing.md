@@ -6,7 +6,7 @@ Authoritative requirements: [motion-design.md](motion-design.md) §16 and [motio
 
 # Motion golden provenance
 
-`tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json` is
+`tests/fixtures/golden/motion-synthetic-credit-card-statement.json` is
 grounded in the printed content of the committed fictional statement. Its PDF
 SHA-256 is
 `F06F37E0715FBFEDCCB83056BE0E0023DA4A83AD224EBD31E984970ABD24F744` (the copy
@@ -23,8 +23,7 @@ environment and run:
 
 ```powershell
 python scripts/extract-motion-golden.py
-npx prettier --write tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json
-npx prettier --write tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json
+npx prettier --write tests/fixtures/golden/motion-synthetic-credit-card-statement.json
 ```
 
 The script checks the source digest, reads text with pypdf's visitor callback,

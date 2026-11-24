@@ -16,7 +16,7 @@ import {
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(path.resolve("public/pdf.worker.mjs")).href;
 
-const fixtureDir = path.resolve("tests/fixtures/synthetic");
+const fixtureDir = path.resolve("tests/fixtures");
 const MAX_ANCHOR_CENTER_DELTA = 0.015;
 
 interface GoldenMoney {
@@ -131,7 +131,7 @@ const FIXTURES: FixtureDefinition[] = [
   {
     name: "Maple signed-amount text layout",
     pdfFile: "layout-a-text.pdf",
-    truthFile: "layout-a-text.json",
+    truthFile: "synthetic/layout-a-text.json",
     expectedKind: "text",
     context: {
       periodVerified: true,
@@ -144,7 +144,7 @@ const FIXTURES: FixtureDefinition[] = [
   {
     name: "Cedar two-date debit-credit text layout",
     pdfFile: "layout-b-text.pdf",
-    truthFile: "layout-b-text.json",
+    truthFile: "synthetic/layout-b-text.json",
     expectedKind: "text",
     context: {
       periodVerified: true,
@@ -156,7 +156,7 @@ const FIXTURES: FixtureDefinition[] = [
   {
     name: "Motion four-page CAD text statement",
     pdfFile: "motion-synthetic-credit-card-statement.pdf",
-    truthFile: "motion-synthetic-credit-card-statement.json",
+    truthFile: "golden/motion-synthetic-credit-card-statement.json",
     expectedKind: "text",
     context: {
       periodVerified: true,
@@ -169,7 +169,7 @@ const FIXTURES: FixtureDefinition[] = [
   {
     name: "Harbour scanned no-text layout",
     pdfFile: "layout-c-scanned.pdf",
-    truthFile: "layout-c-scanned.json",
+    truthFile: "synthetic/layout-c-scanned.json",
     expectedKind: "scanned",
     context: {
       periodVerified: true,
@@ -187,7 +187,7 @@ async function loadFixturePdf(pdfFile: string): Promise<{
   document: PDFDocumentProxy;
   bytes: Uint8Array;
 }> {
-  const buffer = await readFile(path.join(fixtureDir, pdfFile));
+  const buffer = await readFile(path.join(fixtureDir, "synthetic", pdfFile));
   const bytes = new Uint8Array(buffer);
   const task = pdfjsLib.getDocument({
     data: bytes.slice(),

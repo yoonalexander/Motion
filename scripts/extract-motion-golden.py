@@ -20,7 +20,7 @@ from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parents[1]
 PDF = ROOT / "tests/fixtures/synthetic/motion-synthetic-credit-card-statement.pdf"
-OUTPUT = ROOT / "tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json"
+OUTPUT = ROOT / "tests/fixtures/golden/motion-synthetic-credit-card-statement.json"
 EXPECTED_SHA256 = "f06f37e0715fbfedccb83056be0e0023da4a83ad224ebd31e984970abd24f744"
 PAGE_ROW_COUNTS = [14, 18, 18, 10]
 
