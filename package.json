@@ -5,6 +5,8 @@
   "description": "Browser-first PDF-to-Notion expense importer",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/verify-pdf-worker.mjs",
+    "prebuild": "node scripts/verify-pdf-worker.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -15,13 +17,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "fixtures:generate": "node scripts/generate-fixtures.mjs"
+    "fixtures:generate": "node scripts/generate-fixtures.mjs",
+    "verify:pdf-worker": "node scripts/verify-pdf-worker.mjs"
   },
   "dependencies": {
     "client-only": "^0.0.1",
     "clsx": "^2.1.1",
     "next": "^16.4.5",
-    "pdfjs-dist": "^4.3.136",
+    "pdfjs-dist": "4.3.136",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tailwind-merge": "^3.7.0",
