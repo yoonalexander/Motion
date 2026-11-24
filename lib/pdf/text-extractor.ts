@@ -1,8 +1,5 @@
 import "client-only";
-import type {
-  PDFDocumentProxy,
-  PDFPageProxy,
-} from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import { normalizedBboxSchema } from "@/schemas/transaction";
 import type { PdfAnchor } from "@/schemas/transaction";
 
@@ -10,12 +7,19 @@ export interface ExtractedToken {
   str: string;
   page: number;
   tokenId: string;
-  bbox: [number, number, number, number];
+  bbox: PdfAnchor["bbox"];
+  /** Baseline origin in the same crop-relative space as bbox, before clipping. */
   x: number;
   y: number;
+  baselineEnd?: [number, number];
   width: number;
   height: number;
   hasEOL: boolean;
+}
+
+export interface TextGeometryDiagnostic {
+  itemIndex: number;
+  code: "invalid_text_geometry" | "outside_page_view" | "clipped_to_page_view";
 }
 
 export interface ExtractedPage {
@@ -24,6 +28,7 @@ export interface ExtractedPage {
   width: number;
   height: number;
   rotation: number;
+  geometryDiagnostics?: TextGeometryDiagnostic[];
 }
 
 export interface ExtractionResult {
@@ -33,133 +38,129 @@ export interface ExtractionResult {
   hasExtractableText: boolean;
 }
 
-// TextItem-like shape returned by PDF.js getTextContent(). The full types are
-// internal to pdfjs-dist and not re-exported from the package root, so we
-// define a minimal structural type here.
-interface TextItemLike {
-  str: string;
-  transform: number[];
-  width: number;
-  height: number;
-  hasEOL: boolean;
-  fontName?: string;
-  dir?: string;
-  type?: never;
-}
+type TextContent = Awaited<ReturnType<PDFPageProxy["getTextContent"]>>;
+type TextItem = Extract<TextContent["items"][number], { str: string }>;
+type TextStyle = TextContent["styles"][string];
 
-interface TextMarkedContentLike {
-  type: "beginMarkedContent" | "beginMarkedContentProps" | "endMarkedContent";
-  id?: string;
-}
+function textItemGeometry(item: TextItem, style: TextStyle | undefined) {
+  const [a, b, c, d, x, y]: number[] = item.transform;
+  if (![a, b, c, d, x, y, item.width, item.height].every(Number.isFinite)) {
+    return null;
+  }
 
-type TextContentLike = {
-  items: Array<TextItemLike | TextMarkedContentLike>;
-  styles: Record<string, unknown>;
-  lang: string | null;
-};
+  const scaleX = Math.hypot(a, b);
+  const scaleY = Math.hypot(c, d);
+  if (!scaleX || !scaleY || item.width <= 0 || item.height <= 0) {
+    return null;
+  }
 
-function isTextItem(
-  item: TextItemLike | TextMarkedContentLike
-): item is TextItemLike {
-  return "str" in item;
-}
+  // PDF.js already reports advance and font dimensions in page units. Use
+  // the text transform for direction and shear without applying scale again.
+  const vertical = style?.vertical ?? item.dir === "ttb";
+  const [advanceX, advanceY, fontX, fontY] = vertical
+    ? [
+        (-c / scaleY) * item.height,
+        (-d / scaleY) * item.height,
+        (a / scaleX) * item.width,
+        (b / scaleX) * item.width,
+      ]
+    : [
+        (a / scaleX) * item.width,
+        (b / scaleX) * item.width,
+        (c / scaleY) * item.height,
+        (d / scaleY) * item.height,
+      ];
+  const ascent = style?.ascent;
+  const descent = style?.descent;
+  const top = ascent !== undefined && Number.isFinite(ascent) && ascent > 0 ? ascent : 0.8;
+  const bottom = descent !== undefined && Number.isFinite(descent) && descent <= 0 ? descent : -0.2;
+  const endX = x + advanceX;
+  const endY = y + advanceY;
+  const [lowX, highX] = [fontX * bottom, fontX * top];
+  const [lowY, highY] = [fontY * bottom, fontY * top];
+  const bounds = [
+    Math.min(x, endX) + Math.min(lowX, highX),
+    Math.min(y, endY) + Math.min(lowY, highY),
+    Math.max(x, endX) + Math.max(lowX, highX),
+    Math.max(y, endY) + Math.max(lowY, highY),
+  ] as const;
+  const [left, lower, right, upper] = bounds;
+  if (
+    !bounds.every(Number.isFinite) ||
+    !(left < right && lower < upper) ||
+    (a / scaleX) * (d / scaleY) === (b / scaleX) * (c / scaleY)
+  ) {
+    return null;
+  }
 
-function transformPoint(
-  [a, b, c, d, e, f]: [number, number, number, number, number, number],
-  x: number,
-  y: number
-): { x: number; y: number } {
-  return {
-    x: a * x + c * y + e,
-    y: b * x + d * y + f,
-  };
+  return { bounds, x, y, endX, endY };
 }
 
 /**
  * Extracts text tokens with positional coordinates from a single PDF page.
  *
- * Coordinates are computed in PDF page space (origin bottom-left, y increases
- * upward) and normalized to [0, 1] by page width and height, matching the
- * PdfAnchor schema coordinate convention used by existing fixtures.
- *
- * Rotation is handled by transforming all four corners of each text item's
- * bounding box through the item's transform matrix, so rotated text produces
- * correct axis-aligned bounding boxes in page space.
+ * Bounds are measured in unrotated PDF user space and clipped to page.view.
+ * PdfAnchor uses that visible area's lower-left origin, with y increasing
+ * upward. Page rotation is applied only when mapping the anchor to a viewport.
  */
 export async function extractPageText(
   page: PDFPageProxy,
-  pageNumber: number
+  pageNumber: number,
 ): Promise<ExtractedPage> {
-  const content: TextContentLike = (await page.getTextContent()) as unknown as TextContentLike;
-  const view = page.view;
-  const pageWidth = view[2] - view[0];
-  const pageHeight = view[3] - view[1];
-  const rotation = page.rotate;
+  const [viewLeft, viewBottom, viewRight, viewTop] = page.view;
+  const pageWidth = viewRight - viewLeft;
+  const pageHeight = viewTop - viewBottom;
+  if (
+    !Number.isFinite(pageWidth) ||
+    !Number.isFinite(pageHeight) ||
+    pageWidth <= 0 ||
+    pageHeight <= 0
+  ) {
+    throw new Error("Invalid PDF page view");
+  }
 
+  const { items, styles } = await page.getTextContent();
+  const normalizeX = (x: number) => (x - viewLeft) / pageWidth;
+  const normalizeY = (y: number) => (y - viewBottom) / pageHeight;
   const tokens: ExtractedToken[] = [];
-  let tokenIndex = 0;
+  const geometryDiagnostics: TextGeometryDiagnostic[] = [];
 
-  for (const item of content.items) {
-    if (!isTextItem(item)) {
+  for (const [itemIndex, item] of items.entries()) {
+    if (!("str" in item) || !item.str.trim()) {
       continue;
     }
 
-    const text = item.str;
-    if (!text || text.trim().length === 0) {
+    const geometry = textItemGeometry(item, styles[item.fontName]);
+    if (!geometry) {
+      geometryDiagnostics.push({ itemIndex, code: "invalid_text_geometry" });
       continue;
     }
 
-    const [a, b, c, d, e, f] = item.transform as unknown as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ];
-
-    const corners = [
-      [0, 0],
-      [item.width, 0],
-      [0, item.height],
-      [item.width, item.height],
-    ];
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const [cx, cy] of corners) {
-      const { x, y } = transformPoint([a, b, c, d, e, f], cx, cy);
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-    }
-
-    if (minX === maxX || minY === maxY) {
-      continue;
-    }
-
-    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-
-    const bbox: [number, number, number, number] = normalizedBboxSchema.parse([
-      clamp01(minX / pageWidth),
-      clamp01(minY / pageHeight),
-      clamp01(maxX / pageWidth),
-      clamp01(maxY / pageHeight),
+    const [left, bottom, right, top] = geometry.bounds;
+    const bbox = normalizedBboxSchema.safeParse([
+      normalizeX(Math.max(left, viewLeft)),
+      normalizeY(Math.max(bottom, viewBottom)),
+      normalizeX(Math.min(right, viewRight)),
+      normalizeY(Math.min(top, viewTop)),
     ]);
+    if (!bbox.success) {
+      geometryDiagnostics.push({ itemIndex, code: "outside_page_view" });
+      continue;
+    }
+    if (left < viewLeft || bottom < viewBottom || right > viewRight || top > viewTop) {
+      geometryDiagnostics.push({ itemIndex, code: "clipped_to_page_view" });
+    }
 
     tokens.push({
-      str: text,
+      str: item.str,
       page: pageNumber,
-      tokenId: `p${pageNumber}-t${tokenIndex++}`,
-      bbox,
-      x: clamp01(e / pageWidth),
-      y: clamp01(f / pageHeight),
-      width: maxX - minX,
-      height: maxY - minY,
+      tokenId: `p${pageNumber}-t${tokens.length}`,
+      bbox: bbox.data,
+      x: normalizeX(geometry.x),
+      y: normalizeY(geometry.y),
+      baselineEnd: [normalizeX(geometry.endX), normalizeY(geometry.endY)],
+      width: right - left,
+      height: top - bottom,
       hasEOL: item.hasEOL,
     });
   }
@@ -169,7 +170,8 @@ export async function extractPageText(
     tokens,
     width: pageWidth,
     height: pageHeight,
-    rotation,
+    rotation: page.rotate,
+    geometryDiagnostics,
   };
 }
 
@@ -179,9 +181,7 @@ export async function extractPageText(
  * produce an empty token array and are included in the result so callers can
  * detect and report them.
  */
-export async function extractDocumentText(
-  document: PDFDocumentProxy
-): Promise<ExtractionResult> {
+export async function extractDocumentText(document: PDFDocumentProxy): Promise<ExtractionResult> {
   const pages: ExtractedPage[] = [];
   let totalTokens = 0;
 
