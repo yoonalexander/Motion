@@ -21,7 +21,7 @@ const creditContext: StatementContext = { ...baseContext, positiveAmountDirectio
 
 function makeRow(
   str: string,
-  overrides: Partial<CandidateTransactionRow> = {}
+  overrides: Partial<CandidateTransactionRow> = {},
 ): CandidateTransactionRow {
   return {
     rowId: "p1-r0",
@@ -111,8 +111,18 @@ describe("parseDate", () => {
   });
 
   it("requires a verified period to resolve a yearless date", () => {
-    expect(parseDate("10/01", baseContext)).toMatchObject({ isoDate: null, ambiguous: true, yearInferred: true });
-    expect(parseDate("10/01", { periodStart: "2026-10-01", periodEnd: "2026-10-31", periodVerified: true })).toMatchObject({ isoDate: "2026-10-01", ambiguous: false, yearInferred: true });
+    expect(parseDate("10/01", baseContext)).toMatchObject({
+      isoDate: null,
+      ambiguous: true,
+      yearInferred: true,
+    });
+    expect(
+      parseDate("10/01", {
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-31",
+        periodVerified: true,
+      }),
+    ).toMatchObject({ isoDate: "2026-10-01", ambiguous: false, yearInferred: true });
   });
 
   it("handles December and January dates in a verified cross-year period", () => {
@@ -123,14 +133,32 @@ describe("parseDate", () => {
 
   it("uses a verified period to resolve numeric date order when only one interpretation fits", () => {
     const context = { periodStart: "2026-09-01", periodEnd: "2026-09-30", periodVerified: true };
-    expect(parseDate("01/09/2026", context)).toMatchObject({ isoDate: "2026-09-01", ambiguous: false });
-    expect(parseDate("09/02/2026", context)).toMatchObject({ isoDate: "2026-09-02", ambiguous: false });
-    expect(parseDate("09/09/2026", context)).toMatchObject({ isoDate: "2026-09-09", ambiguous: false });
+    expect(parseDate("01/09/2026", context)).toMatchObject({
+      isoDate: "2026-09-01",
+      ambiguous: false,
+    });
+    expect(parseDate("09/02/2026", context)).toMatchObject({
+      isoDate: "2026-09-02",
+      ambiguous: false,
+    });
+    expect(parseDate("09/09/2026", context)).toMatchObject({
+      isoDate: "2026-09-09",
+      ambiguous: false,
+    });
   });
 
-  it.each(["OCT 01", "01 OCT", "October 1", "1 October"])("parses named yearless date %s", (raw) => {
-    expect(parseDate(raw, { periodStart: "2026-10-01", periodEnd: "2026-10-31", periodVerified: true })).toMatchObject({ isoDate: "2026-10-01", ambiguous: false, yearInferred: true });
-  });
+  it.each(["OCT 01", "01 OCT", "October 1", "1 October"])(
+    "parses named yearless date %s",
+    (raw) => {
+      expect(
+        parseDate(raw, {
+          periodStart: "2026-10-01",
+          periodEnd: "2026-10-31",
+          periodVerified: true,
+        }),
+      ).toMatchObject({ isoDate: "2026-10-01", ambiguous: false, yearInferred: true });
+    },
+  );
 
   it("finds non-overlapping date spans and retains their source offsets", () => {
     const text = "10/01  10/02  FRESHMART  56.42; posted OCT 03";
@@ -393,10 +421,10 @@ describe("parseCandidateRow", () => {
   });
 
   it("emits a validated transaction with printed credit and resolved type", () => {
-    const result = parseCandidateRow(
-      makeRow("01/15/2026 PAYMENT RECEIVED 45.85 CR"),
-      { ...baseContext, positiveAmountDirection: "debit" }
-    );
+    const result = parseCandidateRow(makeRow("01/15/2026 PAYMENT RECEIVED 45.85 CR"), {
+      ...baseContext,
+      positiveAmountDirection: "debit",
+    });
 
     expect(result).toMatchObject({
       resolution: "validated",
@@ -414,10 +442,10 @@ describe("parseCandidateRow", () => {
   });
 
   it("uses the inverse of a documented positive convention for a printed minus sign", () => {
-    const result = parseCandidateRow(
-      makeRow("01/15/2026 LATE FEE -45.85"),
-      { ...baseContext, positiveAmountDirection: "credit" }
-    );
+    const result = parseCandidateRow(makeRow("01/15/2026 LATE FEE -45.85"), {
+      ...baseContext,
+      positiveAmountDirection: "credit",
+    });
 
     expect(result.transaction).toMatchObject({
       direction: "debit",
@@ -439,10 +467,12 @@ describe("parseCandidateRow", () => {
   });
 
   it("keeps both yearless date spans while excluding their digits from amount matching", () => {
-    const result = parseCandidateRow(
-      makeRow("10/01  10/02  FRESHMART  56.42"),
-      { periodStart: "2026-10-01", periodEnd: "2026-10-31", periodVerified: true, currency: "USD" }
-    );
+    const result = parseCandidateRow(makeRow("10/01  10/02  FRESHMART  56.42"), {
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      periodVerified: true,
+      currency: "USD",
+    });
 
     expect(result.rawFields.dateLikeMatches).toEqual(["10/01", "10/02"]);
     expect(result.rawFields.amountLikeMatches).toEqual(["56.42"]);
