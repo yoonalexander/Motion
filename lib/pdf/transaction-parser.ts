@@ -1,6 +1,6 @@
 import "client-only";
 import { z } from "zod";
-import { parseAmount } from "./money-parser";
+import { isSupportedCurrencyCode, parseAmount } from "./money-parser";
 import type { CandidateTransactionRow, PageReconstruction } from "./text-reconstructor";
 import { parseDate } from "./date-parser";
 import { inferTransactionType } from "./transaction-classifier";
@@ -100,6 +100,7 @@ export interface RawParsedFields {
   detectedPostingDate: string | null; // ISO YYYY-MM-DD or null
   detectedAmountMinor: string | null; // integer minor units or null
   detectedCurrency: string | null; // ISO 4217 or null
+  printedLedgerCurrencies?: string[];
   detectedType: string | null; // transaction type or null
   detectedMerchant: string | null; // raw description text or null
   yearInferred: boolean;
@@ -153,7 +154,7 @@ export function parseCandidateRow(
     ambiguousBilledAmount,
     ambiguousOriginalAmount,
     columnDirection,
-    headerCurrency,
+    printedLedgerCurrencies,
   } = extractStatementFields(row, source);
   const rawFields: RawParsedFields = {
     dateLikeMatches: fields.dates.map((span) => span.raw),
@@ -162,6 +163,7 @@ export function parseCandidateRow(
     detectedPostingDate: null,
     detectedAmountMinor: null,
     detectedCurrency: null,
+    printedLedgerCurrencies,
     detectedType: null,
     detectedMerchant: null,
     yearInferred: false,
@@ -222,10 +224,12 @@ export function parseCandidateRow(
 
   if (fields.billedAmount) {
     const enteredCurrency = context.currency?.trim().toUpperCase();
+    const [printedCurrency] = printedLedgerCurrencies;
+    const multiplePrintedCurrencies = printedLedgerCurrencies.length > 1;
     const { amountMinor, currency, exponent, signNegative, inParentheses, diagnostic, direction } =
       parseAmount(fields.billedAmount.raw, {
         ...context,
-        currency: headerCurrency ?? enteredCurrency,
+        currency: multiplePrintedCurrencies ? undefined : (printedCurrency ?? enteredCurrency),
       });
     rawFields.amountSignNegative = signNegative;
     rawFields.amountInParentheses = inParentheses;
@@ -237,19 +241,40 @@ export function parseCandidateRow(
     } else {
       rawFields.amountDirection = direction ?? columnDirection;
     }
-    if (amountMinor !== null && currency !== null && exponent !== null) {
+    const unsupportedPrintedCurrency = printedLedgerCurrencies.some(
+      (code) => !isSupportedCurrencyCode(code),
+    );
+    const conflictingPrintedCurrencies =
+      multiplePrintedCurrencies ||
+      (printedCurrency !== undefined && currency !== null && currency !== printedCurrency);
+    const resolvedLedgerCurrency = printedCurrency ?? currency;
+    const conflictingEnteredCurrency =
+      enteredCurrency && resolvedLedgerCurrency && enteredCurrency !== resolvedLedgerCurrency;
+
+    if (
+      !unsupportedPrintedCurrency &&
+      !conflictingPrintedCurrencies &&
+      amountMinor !== null &&
+      currency !== null &&
+      exponent !== null
+    ) {
       money = { amountMinor, currency, exponent };
     }
     if (
-      headerCurrency &&
-      ((enteredCurrency && enteredCurrency !== headerCurrency) ||
-        (currency && currency !== headerCurrency))
+      diagnostic ||
+      unsupportedPrintedCurrency ||
+      conflictingPrintedCurrencies ||
+      conflictingEnteredCurrency
     ) {
       flags.push("ambiguous_amount");
+    }
+    if (unsupportedPrintedCurrency) {
+      diagnostics.push("unsupported_statement_currency");
+    }
+    if (conflictingPrintedCurrencies || conflictingEnteredCurrency) {
       diagnostics.push("conflicting_statement_currency");
     }
     if (diagnostic) {
-      flags.push("ambiguous_amount");
       diagnostics.push(diagnostic);
     }
   } else if (ambiguousBilledAmount) {

@@ -64,8 +64,9 @@ function isLedgerColumn(kind: Column | undefined): boolean {
   return kind === "amount" || kind === "debit" || kind === "credit";
 }
 
-function columnKind(raw: string): Column | undefined {
-  const label = raw.trim().replace(/[.:]/g, "").replace(/\s+/g, " ").toUpperCase();
+const amountHeaderPattern = /^(?:(?:([A-Z]{3})|BILLED) )?AMOUNT(?: ([A-Z]{3}))?$/;
+
+function columnKind(label: string): Column | undefined {
   if (/^(?:DATE|PURCHASE(?: DATE)?|TRANS(?:ACTION)? DATE)$/.test(label)) return "transactionDate";
   if (/^(?:POST(?:ED|ING)?(?: DATE)?|PROCESS(?:ED|ING)? DATE)$/.test(label)) return "postingDate";
   if (/^(?:DESCRIPTION|DETAILS|MERCHANT|PAYEE|TRANSACTION DESCRIPTION)$/.test(label)) {
@@ -73,7 +74,7 @@ function columnKind(raw: string): Column | undefined {
   }
   if (/^DEBITS?(?: AMOUNT)?$/.test(label)) return "debit";
   if (/^CREDITS?(?: AMOUNT)?$/.test(label)) return "credit";
-  if (/^(?:(?:[A-Z]{3}|BILLED) )?AMOUNT(?: [A-Z]{3})?$/.test(label)) return "amount";
+  if (amountHeaderPattern.test(label)) return "amount";
 }
 
 function headerColumns(
@@ -91,13 +92,12 @@ function headerColumns(
     // and money cells. Arbitrary prose mentioning one of those is insufficient.
     const columns = line.tokenIds.flatMap((id) => {
       const token = tokens.get(id);
-      const kind = token && columnKind(token.str);
-      if (!token || !kind) return [];
-      const currency =
-        kind === "amount"
-          ? token.str.trim().toUpperCase().split(/\s+/).find(isSupportedCurrencyCode)
-          : undefined;
-      return [{ kind, center: (token.bbox[0] + token.bbox[2]) / 2, currency }];
+      if (!token) return [];
+      const label = token.str.trim().replace(/[.:]/g, "").replace(/\s+/g, " ").toUpperCase();
+      const kind = columnKind(label);
+      if (!kind) return [];
+      const currencies = (amountHeaderPattern.exec(label)?.slice(1) ?? []).filter(Boolean);
+      return [{ kind, center: (token.bbox[0] + token.bbox[2]) / 2, currencies }];
     });
     if (
       columns.some(({ kind }) => kind === "transactionDate" || kind === "postingDate") &&
@@ -202,7 +202,7 @@ function lineRanges(row: CandidateTransactionRow, lines: readonly TextLine[] | u
 }
 
 const originalLabel = /^\s*original\s+(?:purchase|amount)\s*:/i;
-const billedCurrencyLabel = /^\s*billed\s+in\s+[A-Z]{3}\s*$/i;
+const billedCurrencyLabel = /^\s*billed\s+in\s+([A-Z]{3})\s*$/i;
 
 export function extractStatementFields(row: CandidateTransactionRow, source?: PositionedSource) {
   const { str } = row;
@@ -265,7 +265,6 @@ export function extractStatementFields(row: CandidateTransactionRow, source?: Po
       cellBoundaries.push(previous.end);
     }
   }
-  const headerCurrency = columns.find(({ currency }) => currency)?.currency;
   const amounts: AmountEvidence[] = amountRanges(str, dates, cellBoundaries, (range) =>
     isLedgerColumn(column(field(range))),
   ).map(({ explicit, spaceGrouped, ambiguousCurrencyPrefix, ...range }) => {
@@ -277,6 +276,17 @@ export function extractStatementFields(row: CandidateTransactionRow, source?: Po
     const text = str.slice(line.start, line.end);
     return originalLabel.test(text) || billedCurrencyLabel.test(text);
   });
+  const billedNoteCurrencies = notes.flatMap(({ start, end }) => {
+    const note = str.slice(start, end);
+    const clauses = originalLabel.test(note) ? note.split("|") : [note];
+    return clauses.flatMap((clause) => {
+      const match = billedCurrencyLabel.exec(clause);
+      return match ? [match[1].toUpperCase()] : [];
+    });
+  });
+  const printedLedgerCurrencies = [
+    ...new Set([...columns.flatMap(({ currencies }) => currencies), ...billedNoteCurrencies]),
+  ];
   const original = amounts.filter((span) =>
     notes.some(
       (note) => originalLabel.test(str.slice(note.start, note.end)) && overlaps(span, note),
@@ -381,6 +391,6 @@ export function extractStatementFields(row: CandidateTransactionRow, source?: Po
       billedAmount?.column === "credit" || billedAmount?.column === "debit"
         ? billedAmount.column
         : null,
-    headerCurrency,
+    printedLedgerCurrencies,
   };
 }
