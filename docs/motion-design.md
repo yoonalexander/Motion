@@ -320,7 +320,7 @@ type Money = {
 
 type PdfAnchor = {
   page: number;         // 1-based
-  bbox: [number, number, number, number]; // normalized coordinates
+  bbox: [number, number, number, number]; // [left, bottom, right, top] in [0, 1]
   tokenIds?: string[];
 };
 
@@ -345,6 +345,8 @@ type ParsedTransaction = {
   reviewStatus: 'ready' | 'needs_review' | 'skip' | 'approved';
 };
 ```
+
+**Source anchors:** Normalize each axis against the visible PDF.js `page.view`, subtracting its lower-left corner before dividing by its width or height. Coordinates are y-up in the unrotated PDF page. At display time, project the bounds through the PDF.js viewport that renders the page to apply rotation and zoom. Text bounds approximate the run using its advance and font metrics. Extraction reports invalid, clipped, and outside-view geometry.
 
 **Currency handling:** Store billed amount and billed currency separately from original amount and original currency if the statement reports both. Do not invent FX rates. Reconcile using billed amounts, not original foreign-currency values.
 

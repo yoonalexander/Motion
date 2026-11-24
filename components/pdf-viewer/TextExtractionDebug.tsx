@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PageViewport, PDFDocumentProxy } from "pdfjs-dist";
+import { bboxToViewportRect } from "@/lib/pdf/coordinates";
 import {
   loadPDF,
   extractDocumentText,
@@ -54,6 +55,12 @@ export function TextExtractionDebug({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
+  const [renderedPage, setRenderedPage] = useState<{
+    document: PDFDocumentProxy;
+    page: number;
+    scale: number;
+    viewport: PageViewport;
+  } | null>(null);
   const [selectedToken, setSelectedToken] = useState<ExtractedToken | null>(null);
   const [selectedLine, setSelectedLine] = useState<TextLine | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<
@@ -141,6 +148,9 @@ export function TextExtractionDebug({
             viewport,
           })
           .promise;
+        if (!cancelled) {
+          setRenderedPage({ document, page: currentPage, scale, viewport });
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to render page");
@@ -212,8 +222,9 @@ export function TextExtractionDebug({
     setViewMode("parsed");
   }, []);
 
-  const pageTokens =
-    extraction?.pages.find((p) => p.page === currentPage)?.tokens ?? [];
+  const extractedPage = extraction?.pages.find((p) => p.page === currentPage);
+  const pageTokens = extractedPage?.tokens ?? [];
+  const geometryDiagnostics = extractedPage?.geometryDiagnostics ?? [];
   const pageReconstruction = reconstruction?.pages.find(
     (p) => p.page === currentPage
   );
@@ -228,6 +239,7 @@ export function TextExtractionDebug({
   const resetFile = useCallback(() => {
     setFile(null);
     setPdfResult(null);
+    setRenderedPage(null);
     setExtraction(null);
     setReconstruction(null);
     setCurrentPage(1);
@@ -247,45 +259,33 @@ export function TextExtractionDebug({
     }
   }, []);
 
-  const highlightOverlay = (() => {
-    if (selectedToken) {
-      return {
-        className: "border-2 border-red-500 bg-red-500/20 shadow-[0_0_0_1px_rgba(239,68,68,0.4)]",
-        style: {
-          left: `${selectedToken.bbox[0] * 100}%`,
-          top: `${(1 - selectedToken.bbox[3]) * 100}%`,
-          width: `${(selectedToken.bbox[2] - selectedToken.bbox[0]) * 100}%`,
-          height: `${(selectedToken.bbox[3] - selectedToken.bbox[1]) * 100}%`,
-        },
-        label: "token",
-      };
-    }
-    if (selectedLine) {
-      return {
-        className: "border-2 border-blue-500 bg-blue-500/20 shadow-[0_0_0_1px_rgba(59,130,246,0.4)]",
-        style: {
-          left: `${selectedLine.bbox[0] * 100}%`,
-          top: `${(1 - selectedLine.bbox[3]) * 100}%`,
-          width: `${(selectedLine.bbox[2] - selectedLine.bbox[0]) * 100}%`,
-          height: `${(selectedLine.bbox[3] - selectedLine.bbox[1]) * 100}%`,
-        },
-        label: "line",
-      };
-    }
-    if (selectedCandidate) {
-      return {
-        className: "border-2 border-green-500 bg-green-500/20 shadow-[0_0_0_1px_rgba(34,197,94,0.4)]",
-        style: {
-          left: `${selectedCandidate.bbox[0] * 100}%`,
-          top: `${(1 - selectedCandidate.bbox[3]) * 100}%`,
-          width: `${(selectedCandidate.bbox[2] - selectedCandidate.bbox[0]) * 100}%`,
-          height: `${(selectedCandidate.bbox[3] - selectedCandidate.bbox[1]) * 100}%`,
-        },
-        label: "candidate",
-      };
-    }
-    return null;
-  })();
+  const selection = selectedToken ?? selectedLine ?? selectedCandidate;
+  const highlightClass = selectedToken
+    ? "border-red-500 bg-red-500/20"
+    : selectedLine
+      ? "border-blue-500 bg-blue-500/20"
+      : "border-green-500 bg-green-500/20";
+  let highlightStyle;
+  if (
+    renderedPage &&
+    renderedPage.document === pdfResult?.document &&
+    renderedPage.page === currentPage &&
+    renderedPage.scale === scale &&
+    selection?.page === currentPage
+  ) {
+    const { viewport } = renderedPage;
+    const rect = bboxToViewportRect(selection.bbox, viewport);
+    // Apply viewport pixels relative to the intrinsic canvas size so the
+    // highlight follows the canvas when its CSS width is constrained.
+    const width = Math.ceil(viewport.width);
+    const height = Math.ceil(viewport.height);
+    highlightStyle = {
+      left: `${(rect.left / width) * 100}%`,
+      top: `${(rect.top / height) * 100}%`,
+      width: `${(rect.width / width) * 100}%`,
+      height: `${(rect.height / height) * 100}%`,
+    };
+  }
 
   if (error) {
     return (
@@ -343,14 +343,18 @@ export function TextExtractionDebug({
                 <CardTitle>Document</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="relative w-full max-w-full aspect-auto bg-slate-100">
-                  <canvas ref={canvasRef} className="block max-w-full h-auto" />
-                  {highlightOverlay && (
-                    <div
-                      className={`absolute pointer-events-none ${highlightOverlay.className}`}
-                      style={highlightOverlay.style}
-                    />
-                  )}
+                <div className="bg-slate-100">
+                  <div className="relative inline-block max-w-full align-top">
+                    <canvas ref={canvasRef} className="block h-auto max-w-full" />
+                    {highlightStyle && (
+                      <div
+                        aria-hidden="true"
+                        data-testid="pdf-source-highlight"
+                        className={`pointer-events-none absolute border-2 ${highlightClass}`}
+                        style={highlightStyle}
+                      />
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 bg-slate-50">
                   <div className="flex items-center gap-2">
@@ -472,6 +476,12 @@ export function TextExtractionDebug({
                   <CardTitle>Tokens on page {currentPage}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 max-h-96 overflow-y-auto">
+                  {geometryDiagnostics.length > 0 && (
+                    <p className="p-2 text-xs text-amber-700">
+                      Text geometry issues on this page:{" "}
+                      {geometryDiagnostics.length}
+                    </p>
+                  )}
                   {pageTokens.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-4">
                       No extractable text on this page
