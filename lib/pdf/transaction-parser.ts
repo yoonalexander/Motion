@@ -1,5 +1,6 @@
 import "client-only";
 import { z } from "zod";
+import { parseAmount } from "./money-parser";
 import type { CandidateTransactionRow } from "./text-reconstructor";
 import type { ExtractedPage } from "./text-extractor";
 import {
@@ -17,6 +18,8 @@ import {
   type ClassificationFlag,
 } from "@/schemas/transaction";
 
+export { parseAmount } from "./money-parser";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -25,6 +28,7 @@ export interface StatementContext {
   periodStart?: string; // ISO date YYYY-MM-DD
   periodEnd?: string; // ISO date YYYY-MM-DD
   currency?: string; // ISO 4217 code
+  decimalSeparator?: "." | ",";
   accountLabel?: string;
   accountLast4?: string;
   bankName?: string;
@@ -187,203 +191,6 @@ function isValidCalendarDate(iso: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Amount parsing
-// ---------------------------------------------------------------------------
-
-/**
- * Parses a monetary amount string into integer minor units.
- *
- * Handles:
- * - Thousands separators: 1,234.56
- * - European format: 1.234,56 (period as thousands, comma as decimal)
- * - Negative values: -100.00, (100.00)
- * - Parentheses indicating negative: (100.00)
- * - Debit/credit columns: sign determined by column context
- * - Currency symbols: $, £, €, ¥
- *
- * Returns null if the amount cannot be confidently parsed.
- */
-export function parseAmount(
-  raw: string,
-  context: StatementContext
-): {
-  amountMinor: string | null;
-  currency: string | null;
-  signNegative: boolean;
-  inParentheses: boolean;
-  ambiguous: boolean;
-} {
-  let trimmed = raw.trim();
-  let signNegative = false;
-  let inParentheses = false;
-  let ambiguous = false;
-
-  // Detect parentheses (accounting convention for negative)
-  const parenMatch = trimmed.match(/^\((.+)\)$/);
-  if (parenMatch) {
-    inParentheses = true;
-    signNegative = true;
-    trimmed = parenMatch[1].trim();
-  }
-
-  // Detect leading minus sign
-  if (trimmed.startsWith("-")) {
-    signNegative = true;
-    trimmed = trimmed.slice(1).trim();
-  }
-
-  // Detect leading plus sign
-  if (trimmed.startsWith("+")) {
-    trimmed = trimmed.slice(1).trim();
-  }
-
-  // Detect currency symbols and codes
-  let detectedCurrency: string | null = null;
-  const currencySymbolMap: Record<string, string> = {
-    "$": "USD",
-    "£": "GBP",
-    "€": "EUR",
-    "¥": "JPY",
-    "₹": "INR",
-    "₩": "KRW",
-    "R$": "BRL",
-    "C$": "CAD",
-    "A$": "AUD",
-  };
-  for (const [symbol, code] of Object.entries(currencySymbolMap)) {
-    if (trimmed.startsWith(symbol)) {
-      detectedCurrency = code;
-      trimmed = trimmed.slice(symbol.length).trim();
-      break;
-    }
-  }
-  // Also check for ISO code at start or end
-  const isoCodeMatch = trimmed.match(/^[A-Z]{3}\s+(.+)|(.+)\s+[A-Z]{3}$/);
-  if (isoCodeMatch && !detectedCurrency) {
-    detectedCurrency = isoCodeMatch[1] ?? isoCodeMatch[2];
-    trimmed = trimmed.replace(/^[A-Z]{3}\s+/, "").replace(/\s+[A-Z]{3}$/, "").trim();
-  }
-
-  // Fall back to statement context currency
-  if (!detectedCurrency && context.currency) {
-    detectedCurrency = context.currency;
-  }
-
-  // Remove thousands separators and parse
-  // Strategy: try to identify decimal separator
-  // - If string contains both . and ,, the last one is the decimal separator
-  // - If only ., it's the decimal separator (US/UK)
-  // - If only ,, it could be decimal (European) or thousands (ambiguous)
-  let numericPart = trimmed;
-
-  const lastDot = numericPart.lastIndexOf(".");
-  const lastComma = numericPart.lastIndexOf(",");
-
-  let decimalSeparator: "." | "," | null = null;
-  let thousandsSeparator: "." | "," | null = null;
-
-  if (lastDot >= 0 && lastComma >= 0) {
-    // Both present: the last one is the decimal separator
-    if (lastDot > lastComma) {
-      decimalSeparator = ".";
-      thousandsSeparator = ",";
-    } else {
-      decimalSeparator = ",";
-      thousandsSeparator = ".";
-    }
-  } else if (lastDot >= 0) {
-    // Only dots: could be 1.234 (thousands) or 1.234.56 (invalid) or 1.56 (decimal)
-    const parts = numericPart.split(".");
-    if (parts.length === 2 && parts[1].length <= 2) {
-      decimalSeparator = ".";
-    } else if (parts.length > 2) {
-      // Multiple dots: first are thousands, last is decimal if last part <= 2 digits
-      const lastPart = parts[parts.length - 1];
-      if (lastPart.length <= 2) {
-        decimalSeparator = ".";
-        thousandsSeparator = ".";
-      } else {
-        ambiguous = true;
-      }
-    } else {
-      // Single dot: could be thousands (1.234) or decimal (1.56)
-      if (parts[1].length === 3) {
-        // Likely thousands separator: 1.234
-        thousandsSeparator = ".";
-      } else {
-        // Likely decimal: 1.56
-        decimalSeparator = ".";
-      }
-    }
-  } else if (lastComma >= 0) {
-    // Only commas: could be 1,234 (thousands) or 1,234.56 (no, no dots) or 1,56 (decimal European)
-    const parts = numericPart.split(",");
-    if (parts.length === 2 && parts[1].length <= 2) {
-      decimalSeparator = ",";
-    } else if (parts.length > 2) {
-      // Multiple commas: thousands separators
-      thousandsSeparator = ",";
-    } else {
-      // Single comma: ambiguous
-      if (parts[1].length === 3) {
-        thousandsSeparator = ",";
-      } else {
-        decimalSeparator = ",";
-        ambiguous = true;
-      }
-    }
-  }
-
-  // Remove thousands separators
-  if (thousandsSeparator) {
-    numericPart = numericPart.split(thousandsSeparator).join("");
-  }
-
-  // Replace decimal separator with dot for parsing
-  if (decimalSeparator === ",") {
-    numericPart = numericPart.replace(",", ".");
-  }
-
-  // Parse the number
-  const num = parseFloat(numericPart);
-  if (Number.isNaN(num)) {
-    return {
-      amountMinor: null,
-      currency: detectedCurrency,
-      signNegative: false,
-      inParentheses: false,
-      ambiguous: true,
-    };
-  }
-
-  // Determine exponent from currency
-  let exponent = 2;
-  if (detectedCurrency) {
-    const currencyExponents: Record<string, number> = {
-      JPY: 0,
-      KRW: 0,
-      USD: 2,
-      GBP: 2,
-      EUR: 2,
-      CAD: 2,
-      INR: 2,
-    };
-    exponent = currencyExponents[detectedCurrency] ?? 2;
-  }
-
-  // Convert to minor units
-  const amountMinor = Math.round(num * Math.pow(10, exponent)).toString();
-
-  return {
-    amountMinor,
-    currency: detectedCurrency,
-    signNegative,
-    inParentheses,
-    ambiguous,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Transaction type inference
 // ---------------------------------------------------------------------------
 
@@ -534,40 +341,29 @@ export function parseCandidateRow(
   }
 
   // Parse amount
-  let amountMinor: string | null = null;
-  let currency: string | null = context.currency ?? null;
-  let amountSignNegative = false;
-  let amountInParentheses = false;
-  let amountAmbiguous = false;
+  let money: Money | undefined;
 
   if (amountMatches.length >= 1) {
-    const parsed = parseAmount(amountMatches[0]!, context);
-    amountMinor = parsed.amountMinor;
-    currency = parsed.currency ?? currency;
-    amountSignNegative = parsed.signNegative;
-    amountInParentheses = parsed.inParentheses;
-    amountAmbiguous = parsed.ambiguous;
-    rawFields.amountSignNegative = amountSignNegative;
-    rawFields.amountInParentheses = amountInParentheses;
-    if (parsed.amountMinor) {
-      rawFields.detectedAmountMinor = parsed.amountMinor;
+    const { amountMinor, currency, exponent, signNegative, inParentheses, diagnostic } =
+      parseAmount(amountMatches[0]!, context);
+    rawFields.amountSignNegative = signNegative;
+    rawFields.amountInParentheses = inParentheses;
+    rawFields.detectedAmountMinor = amountMinor;
+    rawFields.detectedCurrency = currency;
+    if (amountMinor !== null && currency !== null && exponent !== null) {
+      money = { amountMinor, currency, exponent };
     }
-    if (parsed.currency) {
-      rawFields.detectedCurrency = parsed.currency;
-    }
-    if (parsed.ambiguous) {
+    if (diagnostic) {
       flags.push("ambiguous_amount");
-      diagnostics.push("ambiguous_amount_format");
+      diagnostics.push(diagnostic);
     }
   } else {
     flags.push("missing_amount");
     diagnostics.push("no_amount_found");
   }
 
-  rawFields.detectedAmountMinor = amountMinor;
-  rawFields.detectedCurrency = currency;
-
   // Infer transaction type
+  const { amountSignNegative, amountInParentheses } = rawFields;
   const merchantDesc = extractMerchantDescription(row.str, rawFields);
   rawFields.detectedMerchant = merchantDesc;
   const typeInfo = inferTransactionType(
@@ -597,7 +393,7 @@ export function parseCandidateRow(
   // Determine parsing status
   let status: ParsingStatus;
   const hasDate = !!transactionDate;
-  const hasAmount = !!amountMinor;
+  const hasAmount = money !== undefined;
   const hasMerchant = merchantDesc.length > 0;
 
   if (!hasDate && !hasAmount && !hasMerchant) {
@@ -606,7 +402,7 @@ export function parseCandidateRow(
   } else if (!hasDate || !hasAmount) {
     status = "partially_parsed";
     diagnostics.push("missing_required_fields");
-  } else if (dateAmbiguous || amountAmbiguous || !typeInfo.confident) {
+  } else if (dateAmbiguous || !typeInfo.confident) {
     status = "needs_review";
     diagnostics.push("ambiguous_fields");
   } else {
@@ -616,13 +412,7 @@ export function parseCandidateRow(
   // Build the validated transaction if possible
   let transaction: ParsedTransaction | undefined;
 
-  if (status === "successfully_parsed" || status === "needs_review") {
-    const money: Money = {
-      amountMinor: amountMinor!,
-      currency: currency || "USD",
-      exponent: currency === "JPY" || currency === "KRW" ? 0 : 2,
-    };
-
+  if (money && (status === "successfully_parsed" || status === "needs_review")) {
     const candidateTransaction: Partial<ParsedTransaction> = {
       temporaryId: row.rowId,
       transactionDate: transactionDate || undefined,
