@@ -58,6 +58,8 @@ export {
   extractMerchantDescription,
   type StatementContext,
   type ParsedCandidate,
+  type ValidatedCandidate,
+  type UnresolvedCandidate,
   type ParsingStatus,
   type RawParsedFields,
   type FieldSpan,

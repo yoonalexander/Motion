@@ -322,8 +322,22 @@ export function extractStatementFields(row: CandidateTransactionRow, source?: Po
       leadingDates.push(span);
       cursor = span.end;
     }
-    [transactionDate, postingDate] = leadingDates;
     ambiguousDates = leadingDates.length > 2;
+    if (!ambiguousDates) {
+      [transactionDate, postingDate] = leadingDates;
+    }
+  }
+
+  // A populated posting-date cell is evidence even if its text is unreadable.
+  if (!postingDate && !ambiguousDates && columns.some(({ kind }) => kind === "postingDate")) {
+    const postingCells = located.filter(
+      (range) => overlaps(range, main) && column(field(range)) === "postingDate",
+    );
+    const start = postingCells[0]?.start;
+    const end = postingCells.at(-1)?.end;
+    if (start !== undefined && end !== undefined) {
+      postingDate = field({ start, end });
+    }
   }
 
   const removed = [transactionDate, postingDate, billedAmount, ...notes]

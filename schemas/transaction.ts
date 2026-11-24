@@ -60,6 +60,7 @@ export const transactionTypeSchema = z.enum([
 ]);
 
 export const transactionSourceSchema = z.enum(["statement_pdf", "receipt", "manual_fix"]);
+export const transactionDirectionSchema = z.enum(["credit", "debit"]);
 
 export const reviewStatusSchema = z.enum(["ready", "needs_review", "skip", "approved"]);
 
@@ -87,6 +88,7 @@ export const parsedTransactionSchema = z
     rawDescription: z.string().min(1),
     normalizedMerchant: z.string().min(1).optional(),
     transactionType: transactionTypeSchema,
+    direction: transactionDirectionSchema.optional(),
     billedAmount: moneySchema,
     originalAmount: moneySchema.optional(),
     categoryNotionOptionId: z.string().min(1).optional(),
@@ -104,6 +106,7 @@ export const parsedTransactionSchema = z
 export type Money = z.infer<typeof moneySchema>;
 export type PdfAnchor = z.infer<typeof pdfAnchorSchema>;
 export type TransactionType = z.infer<typeof transactionTypeSchema>;
+export type TransactionDirection = z.infer<typeof transactionDirectionSchema>;
 export type TransactionSource = z.infer<typeof transactionSourceSchema>;
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type ClassificationFlag = z.infer<typeof classificationFlagSchema>;

@@ -30,7 +30,7 @@ describe("extracting exact statement fields", () => {
     const str = "01/15/2026 GAP 24 45.85";
     const result = parseCandidateRow(row(str), { currency: "USD" });
 
-    expect(result.transaction?.billedAmount).toEqual({
+    expect((result.transaction ?? result.partial).billedAmount).toEqual({
       amountMinor: "4585",
       currency: "USD",
       exponent: 2,
@@ -71,7 +71,7 @@ describe("extracting exact statement fields", () => {
     const str = "01/15/2026 01/16/2026 GAP $22.00 | Original purchase: 15.99 USD | Billed in CAD";
     const result = parseCandidateRow(row(str, true), { dateOrder: "MDY", currency: "CAD" });
 
-    expect(result.transaction).toMatchObject({
+    expect(result.transaction ?? result.partial).toMatchObject({
       transactionDate: "2026-01-15",
       postingDate: "2026-01-16",
       billedAmount: { amountMinor: "2200", currency: "CAD" },
@@ -116,7 +116,7 @@ describe("positioned fields from real PDFs", () => {
 
     const [parsed] = await parsePdf(await document.save(), { currency: "CAD" });
 
-    expect(parsed.transaction).toMatchObject({
+    expect(parsed.transaction ?? parsed.partial).toMatchObject({
       transactionDate: "2026-01-15",
       postingDate: "2026-01-16",
       billedAmount: { amountMinor: "12550", currency: "USD" },
@@ -128,12 +128,38 @@ describe("positioned fields from real PDFs", () => {
     });
   });
 
+  it("retains an unreadable value printed under the posting date header for review", async () => {
+    const document = await PDFDocument.create();
+    const font = await document.embedFont(StandardFonts.Helvetica);
+    const page = document.addPage([600, 800]);
+    for (const [x, header, value] of [
+      [48, "TRANS DATE", "01/15/2026"],
+      [145, "POST DATE", "UNCLEAR"],
+      [245, "DESCRIPTION", "REFUND RECEIVED"],
+      [460, "AMOUNT", "32.00 CR"],
+    ] as const) {
+      page.drawText(header, { x, y: 625, font, size: 10 });
+      page.drawText(value, { x, y: 600, font, size: 10 });
+    }
+
+    const [parsed] = await parsePdf(await document.save(), { currency: "USD" });
+
+    expect(parsed.resolution).toBe("unresolved");
+    expect(parsed.transaction).toBeUndefined();
+    expect(parsed.partial?.rawDescription).toBe("REFUND RECEIVED");
+    expect(parsed.rawFields.fieldSpans?.postingDate).toMatchObject({
+      raw: "UNCLEAR",
+      anchor: { tokenIds: [expect.any(String)] },
+    });
+    expect(parsed.diagnostics).toContain("ambiguous_posting_date_format");
+  });
+
   it("uses Cedar Bank's debit and credit columns while retaining two date anchors", async () => {
     const rows = await parseFixture("layout-b-text.pdf", { currency: "GBP", dateOrder: "DMY" });
     const order = rows.find((entry) => entry.str.includes("ORDER 88421"));
     const refund = rows.find((entry) => entry.str.includes("REFUND - CLOTHING STORE"));
 
-    expect(order?.transaction).toMatchObject({
+    expect(order?.transaction ?? order?.partial).toMatchObject({
       transactionDate: "2026-09-06",
       postingDate: "2026-09-08",
       billedAmount: { amountMinor: "4599", currency: "GBP" },
@@ -161,7 +187,7 @@ describe("positioned fields from real PDFs", () => {
     const rows = await parseFixture("layout-a-text.pdf", { currency: "CAD", dateOrder: "MDY" });
     const gas = rows.find((entry) => entry.str.includes("GAS STATION 24"));
 
-    expect(gas?.transaction?.rawDescription).toBe("GAS STATION 24");
+    expect((gas?.transaction ?? gas?.partial)?.rawDescription).toBe("GAS STATION 24");
     expect(gas?.rawFields.amountSignNegative).toBe(true);
     expect(gas?.rawFields.fieldSpans?.billedAmount).toMatchObject({
       raw: "-52.10",
