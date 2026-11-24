@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseAmount } from "./money-parser";
 import type { CandidateTransactionRow, PageReconstruction } from "./text-reconstructor";
 import { parseDate } from "./date-parser";
+import { inferTransactionType } from "./transaction-classifier";
 import {
   extractStatementFields,
   type ParsedFieldSpans,
@@ -12,14 +13,29 @@ export { findDateSpans, parseDate } from "./date-parser";
 export type { DateSpan } from "./date-parser";
 export type { FieldSpan, ParsedFieldSpans, PositionedSource } from "./statement-fields";
 import {
+  isoDateSchema,
   parsedTransactionSchema,
+  pdfAnchorSchema,
+  transactionDirectionSchema,
   transactionTypeSchema,
-  type ParsedTransaction,
   type Money,
+  type PdfAnchor,
+  type TransactionDirection,
+  type TransactionType,
   type ClassificationFlag,
 } from "@/schemas/transaction";
 
 export { parseAmount } from "./money-parser";
+export { inferTransactionType } from "./transaction-classifier";
+
+const parsedStatementTransactionSchema = parsedTransactionSchema.extend({
+  transactionDate: isoDateSchema,
+  transactionType: transactionTypeSchema.exclude(["unknown"]),
+  direction: transactionDirectionSchema,
+  source: z.literal("statement_pdf"),
+  sourceAnchor: pdfAnchorSchema,
+  reviewStatus: z.literal("ready"),
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,23 +49,42 @@ export interface StatementContext {
   dateOrder?: "MDY" | "DMY";
   currency?: string; // ISO 4217 code
   decimalSeparator?: "." | ",";
+  /** Set only when the statement's unsigned and signed amounts share a known convention. */
+  positiveAmountDirection?: TransactionDirection;
   accountLabel?: string;
   accountLast4?: string;
   bankName?: string;
 }
 
-export interface ParsedCandidate {
-  rowId: string;
-  page: number;
-  str: string;
-  bbox: [number, number, number, number];
-  tokenIds: string[];
-  status: ParsingStatus;
-  transaction?: ParsedTransaction;
+interface CandidateEvidence extends CandidateTransactionRow {
+  sourceAnchor: PdfAnchor;
   flags: ClassificationFlag[];
-  diagnostics: string[];
   rawFields: RawParsedFields;
 }
+
+export interface ValidatedCandidate extends CandidateEvidence {
+  resolution: "validated";
+  status: "successfully_parsed";
+  transaction: z.infer<typeof parsedStatementTransactionSchema>;
+  partial?: never;
+}
+
+export interface UnresolvedCandidate extends CandidateEvidence {
+  resolution: "unresolved";
+  status: Exclude<ParsingStatus, "successfully_parsed">;
+  transaction?: never;
+  partial: {
+    transactionDate?: string;
+    postingDate?: string;
+    billedAmount?: Money;
+    originalAmount?: Money;
+    rawDescription?: string;
+    transactionType?: Exclude<TransactionType, "unknown">;
+    direction?: TransactionDirection;
+  };
+}
+
+export type ParsedCandidate = ValidatedCandidate | UnresolvedCandidate;
 
 export type ParsingStatus =
   | "successfully_parsed"
@@ -71,7 +106,7 @@ export interface RawParsedFields {
   amountSignNegative: boolean;
   amountInParentheses: boolean;
   fieldSpans?: ParsedFieldSpans;
-  amountDirection?: "debit" | "credit" | null;
+  amountDirection?: TransactionDirection | null;
   detectedOriginalAmount?: Money | null;
 }
 
@@ -87,76 +122,14 @@ export interface ParseResult {
 // parser assembly share the same source spans.
 
 // ---------------------------------------------------------------------------
-// Transaction type inference
-// ---------------------------------------------------------------------------
-
-const typeKeywords: Record<string, string[]> = {
-  refund: ["refund", "return", "reversal", "chargeback"],
-  payment: ["payment", "pay", "thank you", "autopay", "online payment"],
-  fee: ["fee", "annual fee", "late fee", "service charge", "account fee"],
-  interest: ["interest", "finance charge"],
-  transfer: ["transfer", "balance transfer", "wire transfer"],
-  deposit: ["deposit", "credit", "direct deposit"],
-};
-
-export function inferTransactionType(
-  description: string,
-  amountSignNegative: boolean,
-  inParentheses: boolean,
-): { type: string; confident: boolean } {
-  const upper = description.toUpperCase();
-
-  // Check for explicit type keywords
-  for (const [type, keywords] of Object.entries(typeKeywords)) {
-    for (const kw of keywords) {
-      if (upper.includes(kw.toUpperCase())) {
-        return { type, confident: true };
-      }
-    }
-  }
-
-  // Negative amount without explicit type → likely purchase or adjustment
-  if (amountSignNegative || inParentheses) {
-    return { type: "purchase", confident: false };
-  }
-
-  // Positive amount → could be payment, deposit, or refund
-  return { type: "unknown", confident: false };
-}
-
-// ---------------------------------------------------------------------------
 // Merchant description extraction
 // ---------------------------------------------------------------------------
 
 /**
- * Extracts a merchant description from a candidate row string.
- * Removes date and amount tokens, preserving multiline content.
+ * Joins the verified description spans in source order, including continuations.
  */
 export function extractMerchantDescription(rowStr: string, rawFields: RawParsedFields): string {
-  if (rawFields.fieldSpans) {
-    return rawFields.fieldSpans.description
-      .map((span) => span.raw)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  let desc = rowStr;
-
-  // Remove detected date strings
-  for (const dateStr of rawFields.dateLikeMatches) {
-    desc = desc.replace(dateStr, " ").trim();
-  }
-
-  // Remove detected amount strings
-  for (const amountStr of rawFields.amountLikeMatches) {
-    desc = desc.replace(amountStr, " ").trim();
-  }
-
-  // Collapse whitespace
-  desc = desc.replace(/\s+/g, " ").trim();
-
-  return desc;
+  return rawFields.fieldSpans?.description.map((span) => span.raw).join(" ") ?? rowStr.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +173,7 @@ export function parseCandidateRow(
   };
 
   const flags: ClassificationFlag[] = [];
-  const diagnostics: string[] = [];
+  const diagnostics = [...row.diagnostics];
 
   // Parse dates
   let transactionDate: string | null = null;
@@ -213,7 +186,7 @@ export function parseCandidateRow(
 
   if (fields.transactionDate) {
     const first = parseDate(fields.transactionDate.raw, context);
-    transactionDate = first.isoDate;
+    transactionDate = first.ambiguous ? null : first.isoDate;
     dateAmbiguous = dateAmbiguous || first.ambiguous;
     rawFields.yearInferred = rawFields.yearInferred || first.yearInferred;
     if (first.isoDate) {
@@ -227,7 +200,7 @@ export function parseCandidateRow(
 
   if (fields.postingDate) {
     const second = parseDate(fields.postingDate.raw, context);
-    postingDate = second.isoDate;
+    postingDate = second.ambiguous ? null : second.isoDate;
     dateAmbiguous = dateAmbiguous || second.ambiguous;
     rawFields.yearInferred = rawFields.yearInferred || second.yearInferred;
     if (second.isoDate) {
@@ -239,7 +212,7 @@ export function parseCandidateRow(
     }
   }
 
-  if (!transactionDate) {
+  if (!fields.transactionDate) {
     flags.push("ambiguous_date");
     diagnostics.push("no_date_found");
   }
@@ -248,10 +221,11 @@ export function parseCandidateRow(
   let money: Money | undefined;
 
   if (fields.billedAmount) {
+    const enteredCurrency = context.currency?.trim().toUpperCase();
     const { amountMinor, currency, exponent, signNegative, inParentheses, diagnostic, direction } =
       parseAmount(fields.billedAmount.raw, {
         ...context,
-        currency: context.currency ?? headerCurrency,
+        currency: headerCurrency ?? enteredCurrency,
       });
     rawFields.amountSignNegative = signNegative;
     rawFields.amountInParentheses = inParentheses;
@@ -265,6 +239,14 @@ export function parseCandidateRow(
     }
     if (amountMinor !== null && currency !== null && exponent !== null) {
       money = { amountMinor, currency, exponent };
+    }
+    if (
+      headerCurrency &&
+      ((enteredCurrency && enteredCurrency !== headerCurrency) ||
+        (currency && currency !== headerCurrency))
+    ) {
+      flags.push("ambiguous_amount");
+      diagnostics.push("conflicting_statement_currency");
     }
     if (diagnostic) {
       flags.push("ambiguous_amount");
@@ -297,123 +279,105 @@ export function parseCandidateRow(
     diagnostics.push("ambiguous_original_amount");
   }
 
-  // Infer transaction type
-  const { amountSignNegative, amountInParentheses } = rawFields;
   const merchantDesc = extractMerchantDescription(row.str, rawFields);
   rawFields.detectedMerchant = merchantDesc;
-  const typeInfo = inferTransactionType(merchantDesc, amountSignNegative, amountInParentheses);
+
+  let direction = rawFields.amountDirection ?? undefined;
+  if (!direction && money && !flags.includes("ambiguous_direction")) {
+    const positiveDirection = context.positiveAmountDirection;
+    if (positiveDirection && money.amountMinor !== "0") {
+      const negativeDirection = positiveDirection === "credit" ? "debit" : "credit";
+      direction = rawFields.amountSignNegative ? negativeDirection : positiveDirection;
+    } else {
+      flags.push("ambiguous_direction");
+      diagnostics.push("unresolved_amount_direction");
+    }
+  }
+
+  const typeInfo = inferTransactionType(merchantDesc, direction);
   rawFields.detectedType = typeInfo.type;
-
-  let transactionType = typeInfo.type;
-  if (!typeInfo.confident) {
-    if (merchantDesc.toUpperCase().includes("REFUND")) {
-      transactionType = "refund";
-    } else if (merchantDesc.toUpperCase().includes("PAYMENT")) {
-      transactionType = "payment";
-    } else if (merchantDesc.toUpperCase().includes("FEE")) {
-      transactionType = "fee";
-    } else if (merchantDesc.toUpperCase().includes("INTEREST")) {
-      transactionType = "interest";
-    } else if (amountSignNegative || amountInParentheses) {
-      transactionType = "purchase";
-    } else {
-      transactionType = "unknown";
-    }
+  const transactionType = typeInfo.confident ? typeInfo.type : undefined;
+  if (!merchantDesc) {
+    diagnostics.push("missing_source_description");
+  } else if (!typeInfo.confident) {
+    flags.push("ambiguous_transaction_type");
+    diagnostics.push(typeInfo.diagnostic);
   }
 
-  // Determine parsing status
-  let status: ParsingStatus;
-  const hasDate = !!transactionDate;
-  const hasAmount = money !== undefined;
-  const hasMerchant = merchantDesc.length > 0;
-
-  if (!hasDate && !hasAmount && !hasMerchant) {
-    status = "unable_to_interpret";
-    diagnostics.push("no_parsable_fields");
-  } else if (!hasDate || !hasAmount) {
-    status = "partially_parsed";
-    diagnostics.push("missing_required_fields");
-  } else if (
-    dateAmbiguous ||
-    flags.includes("ambiguous_amount") ||
-    flags.includes("ambiguous_direction") ||
-    !typeInfo.confident
-  ) {
-    status = "needs_review";
-    diagnostics.push("ambiguous_fields");
-  } else {
-    status = "successfully_parsed";
-  }
-
-  // Build the validated transaction if possible
-  let transaction: ParsedTransaction | undefined;
-
-  if (money && (status === "successfully_parsed" || status === "needs_review")) {
-    const candidateTransaction: Partial<ParsedTransaction> = {
-      temporaryId: row.rowId,
-      transactionDate: transactionDate || undefined,
-      postingDate: postingDate || undefined,
-      rawDescription: merchantDesc || row.str,
-      normalizedMerchant: merchantDesc || undefined,
-      transactionType: transactionType as z.infer<typeof transactionTypeSchema>,
-      billedAmount: money,
-      originalAmount,
-      source: "statement_pdf",
-      sourceAnchor: {
-        page: row.page,
-        bbox: row.bbox,
-        tokenIds: row.tokenIds,
-      },
-      confidence: {},
-      flags,
-      reviewStatus: status === "successfully_parsed" ? "ready" : "needs_review",
-    };
-
-    // Validate against Zod schema
-    const validationResult = parsedTransactionSchema.safeParse(candidateTransaction);
-
-    if (validationResult.success) {
-      transaction = validationResult.data;
-    } else {
-      // Schema validation failed - downgrade status
-      status = "partially_parsed";
-      diagnostics.push("schema_validation_failed");
-      flags.push("ambiguous_amount");
-      // Still create a partial transaction without strict validation
-      transaction = {
-        temporaryId: row.rowId,
-        rawDescription: merchantDesc || row.str,
-        transactionType: "unknown" as z.infer<typeof transactionTypeSchema>,
-        billedAmount: money,
-        source: "statement_pdf",
-        sourceAnchor: {
-          page: row.page,
-          bbox: row.bbox,
-          tokenIds: row.tokenIds,
-        },
-        confidence: {},
-        flags,
-        reviewStatus: "needs_review",
-      } as unknown as ParsedTransaction;
-    }
-  }
-
-  if (status === "unable_to_interpret") {
-    flags.push("unmatched_source");
-  }
-
-  return {
+  const sourceAnchor = { page: row.page, bbox: row.bbox, tokenIds: row.tokenIds };
+  const evidence: CandidateEvidence = {
     rowId: row.rowId,
     page: row.page,
     str: row.str,
-    bbox: row.bbox,
+    lineIds: row.lineIds,
     tokenIds: row.tokenIds,
-    status,
-    transaction,
+    bbox: row.bbox,
+    hasDateLikeField: row.hasDateLikeField,
+    hasAmountLikeField: row.hasAmountLikeField,
+    multiline: row.multiline,
+    sourceAnchor,
     flags,
     diagnostics,
     rawFields,
   };
+  const partial: UnresolvedCandidate["partial"] = {
+    transactionDate: transactionDate ?? undefined,
+    postingDate: postingDate ?? undefined,
+    billedAmount: money,
+    originalAmount,
+    rawDescription: merchantDesc || undefined,
+    transactionType,
+    direction,
+  };
+
+  let status: UnresolvedCandidate["status"] = "partially_parsed";
+  if (!transactionDate && !money && !merchantDesc) {
+    status = "unable_to_interpret";
+    diagnostics.push("no_parsable_fields");
+    flags.push("unmatched_source");
+  } else if (!transactionDate || !money || !merchantDesc) {
+    diagnostics.push("missing_required_fields");
+  } else if (
+    dateAmbiguous ||
+    (fields.postingDate && !postingDate) ||
+    flags.includes("ambiguous_amount") ||
+    !direction ||
+    !transactionType
+  ) {
+    status = "needs_review";
+    diagnostics.push("ambiguous_fields");
+  } else {
+    const validation = parsedStatementTransactionSchema.safeParse({
+      temporaryId: row.rowId,
+      transactionDate,
+      postingDate: postingDate ?? undefined,
+      rawDescription: merchantDesc,
+      normalizedMerchant: merchantDesc.replace(/\s+/g, " "),
+      transactionType,
+      direction,
+      billedAmount: money,
+      originalAmount,
+      source: "statement_pdf",
+      sourceAnchor,
+      flags,
+      reviewStatus: "ready",
+    });
+    if (validation.success) {
+      return {
+        ...evidence,
+        resolution: "validated",
+        status: "successfully_parsed",
+        transaction: validation.data,
+      };
+    }
+
+    diagnostics.push("schema_validation_failed");
+    for (const issue of validation.error.issues) {
+      diagnostics.push("schema_validation_failed:" + issue.path.join("."));
+    }
+  }
+
+  return { ...evidence, resolution: "unresolved", status, partial };
 }
 
 /**

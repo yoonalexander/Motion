@@ -149,7 +149,7 @@ describe("monetary evidence in candidate rows", () => {
   });
 
   it("carries the resolved currency's exponent into the transaction", () => {
-    const result = parseCandidateRow(row, { currency: "KWD" });
+    const result = parseCandidateRow(row, { currency: "KWD", positiveAmountDirection: "credit" });
     expect(result.transaction?.billedAmount).toEqual({
       amountMinor: "45850",
       currency: "KWD",

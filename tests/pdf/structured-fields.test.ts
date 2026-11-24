@@ -30,7 +30,7 @@ describe("extracting exact statement fields", () => {
     const str = "01/15/2026 GAP 24 45.85";
     const result = parseCandidateRow(row(str), { currency: "USD" });
 
-    expect(result.transaction?.billedAmount).toEqual({
+    expect((result.transaction ?? result.partial).billedAmount).toEqual({
       amountMinor: "4585",
       currency: "USD",
       exponent: 2,
@@ -71,7 +71,7 @@ describe("extracting exact statement fields", () => {
     const str = "01/15/2026 01/16/2026 GAP $22.00 | Original purchase: 15.99 USD | Billed in CAD";
     const result = parseCandidateRow(row(str, true), { dateOrder: "MDY", currency: "CAD" });
 
-    expect(result.transaction).toMatchObject({
+    expect(result.transaction ?? result.partial).toMatchObject({
       transactionDate: "2026-01-15",
       postingDate: "2026-01-16",
       billedAmount: { amountMinor: "2200", currency: "CAD" },
@@ -116,7 +116,7 @@ describe("positioned fields from real PDFs", () => {
 
     const [parsed] = await parsePdf(await document.save(), { currency: "CAD" });
 
-    expect(parsed.transaction).toMatchObject({
+    expect(parsed.transaction ?? parsed.partial).toMatchObject({
       transactionDate: "2026-01-15",
       postingDate: "2026-01-16",
       billedAmount: { amountMinor: "12550", currency: "USD" },
@@ -126,6 +126,32 @@ describe("positioned fields from real PDFs", () => {
       raw: "USD 125.50",
       anchor: { tokenIds: [expect.any(String)] },
     });
+  });
+
+  it("retains an unreadable value printed under the posting date header for review", async () => {
+    const document = await PDFDocument.create();
+    const font = await document.embedFont(StandardFonts.Helvetica);
+    const page = document.addPage([600, 800]);
+    for (const [x, header, value] of [
+      [48, "TRANS DATE", "01/15/2026"],
+      [145, "POST DATE", "UNCLEAR"],
+      [245, "DESCRIPTION", "REFUND RECEIVED"],
+      [460, "AMOUNT", "32.00 CR"],
+    ] as const) {
+      page.drawText(header, { x, y: 625, font, size: 10 });
+      page.drawText(value, { x, y: 600, font, size: 10 });
+    }
+
+    const [parsed] = await parsePdf(await document.save(), { currency: "USD" });
+
+    expect(parsed.resolution).toBe("unresolved");
+    expect(parsed.transaction).toBeUndefined();
+    expect(parsed.partial?.rawDescription).toBe("REFUND RECEIVED");
+    expect(parsed.rawFields.fieldSpans?.postingDate).toMatchObject({
+      raw: "UNCLEAR",
+      anchor: { tokenIds: [expect.any(String)] },
+    });
+    expect(parsed.diagnostics).toContain("ambiguous_posting_date_format");
   });
 
   it("uses Cedar Bank's debit and credit columns while retaining two date anchors", async () => {
@@ -138,11 +164,14 @@ describe("positioned fields from real PDFs", () => {
       postingDate: "2026-09-08",
       billedAmount: { amountMinor: "4599", currency: "GBP" },
       rawDescription: "ONLINE RETAILER ORDER 88421",
+      transactionType: "purchase",
+      direction: "debit",
     });
     expect(order?.rawFields.amountDirection).toBe("debit");
     expect(refund?.rawFields.amountDirection).toBe("credit");
     expect(refund?.transaction?.billedAmount.amountMinor).toBe("3200");
     const fields = order?.rawFields.fieldSpans;
+    expect(fields?.description.map((span) => span.raw)).toEqual(["ONLINE RETAILER", "ORDER 88421"]);
     for (const span of [fields?.transactionDate, fields?.postingDate, fields?.billedAmount]) {
       expect(span?.anchor?.page).toBe(1);
       expect(span?.anchor?.tokenIds).toHaveLength(1);
@@ -158,15 +187,71 @@ describe("positioned fields from real PDFs", () => {
   });
 
   it("keeps a signed Maple Card amount and its numeric merchant name", async () => {
-    const rows = await parseFixture("layout-a-text.pdf", { currency: "CAD", dateOrder: "MDY" });
+    const rows = await parseFixture("layout-a-text.pdf", {
+      currency: "CAD",
+      dateOrder: "MDY",
+      positiveAmountDirection: "credit",
+    });
     const gas = rows.find((entry) => entry.str.includes("GAS STATION 24"));
+    const coffee = rows.find((entry) => entry.str.includes("COFFEE HOUSE DOWNTOWN"));
 
-    expect(gas?.transaction?.rawDescription).toBe("GAS STATION 24");
+    expect(gas?.transaction).toMatchObject({
+      rawDescription: "GAS STATION 24",
+      transactionType: "purchase",
+      direction: "debit",
+    });
+    expect(coffee?.transaction?.transactionType).toBe("purchase");
     expect(gas?.rawFields.amountSignNegative).toBe(true);
     expect(gas?.rawFields.fieldSpans?.billedAmount).toMatchObject({
       raw: "-52.10",
       anchor: { page: 1, tokenIds: [expect.any(String)] },
     });
+  });
+
+  it("preserves the printed ledger currency when entered context conflicts", async () => {
+    const rows = await parseFixture("motion-synthetic-credit-card-statement.pdf", {
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      periodVerified: true,
+      positiveAmountDirection: "debit",
+      currency: "USD",
+    });
+    const payment = rows.find((entry) => entry.str.includes("MONTHLY CARD PAYMENT"));
+
+    expect(payment?.resolution).toBe("unresolved");
+    expect(payment?.transaction).toBeUndefined();
+    expect(payment?.partial?.billedAmount).toEqual({
+      amountMinor: "50000",
+      currency: "CAD",
+      exponent: 2,
+    });
+    expect(payment?.diagnostics).toContain("conflicting_statement_currency");
+  });
+
+  it("classifies printed Motion statement labels with the documented sign convention", async () => {
+    const rows = await parseFixture("motion-synthetic-credit-card-statement.pdf", {
+      dateOrder: "MDY",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      periodVerified: true,
+      positiveAmountDirection: "debit",
+    });
+
+    for (const [description, transactionType, direction] of [
+      ["MONTHLY CARD PAYMENT", "payment", "credit"],
+      ["PAYMENT RECEIVED - THANK YOU", "payment", "credit"],
+      ["ONLINE RETAILER RETURN", "refund", "credit"],
+      ["RESTAURANT AUTHORIZED CREDIT", "refund", "credit"],
+      ["BANK SERVICE ADJUSTMENT", "adjustment", "credit"],
+      ["FOREIGN TRANSACTION FEE", "fee", "debit"],
+    ] as const) {
+      const candidate = rows.find((entry) => entry.str.includes(description));
+      expect(candidate?.transaction).toMatchObject({
+        rawDescription: description,
+        transactionType,
+        direction,
+      });
+    }
   });
 
   it("retains all printed Motion original amounts outside the billed column", async () => {
