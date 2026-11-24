@@ -159,16 +159,19 @@ describe("positioned fields from real PDFs", () => {
     const order = rows.find((entry) => entry.str.includes("ORDER 88421"));
     const refund = rows.find((entry) => entry.str.includes("REFUND - CLOTHING STORE"));
 
-    expect(order?.transaction ?? order?.partial).toMatchObject({
+    expect(order?.transaction).toMatchObject({
       transactionDate: "2026-09-06",
       postingDate: "2026-09-08",
       billedAmount: { amountMinor: "4599", currency: "GBP" },
       rawDescription: "ONLINE RETAILER ORDER 88421",
+      transactionType: "purchase",
+      direction: "debit",
     });
     expect(order?.rawFields.amountDirection).toBe("debit");
     expect(refund?.rawFields.amountDirection).toBe("credit");
     expect(refund?.transaction?.billedAmount.amountMinor).toBe("3200");
     const fields = order?.rawFields.fieldSpans;
+    expect(fields?.description.map((span) => span.raw)).toEqual(["ONLINE RETAILER", "ORDER 88421"]);
     for (const span of [fields?.transactionDate, fields?.postingDate, fields?.billedAmount]) {
       expect(span?.anchor?.page).toBe(1);
       expect(span?.anchor?.tokenIds).toHaveLength(1);
@@ -184,15 +187,51 @@ describe("positioned fields from real PDFs", () => {
   });
 
   it("keeps a signed Maple Card amount and its numeric merchant name", async () => {
-    const rows = await parseFixture("layout-a-text.pdf", { currency: "CAD", dateOrder: "MDY" });
+    const rows = await parseFixture("layout-a-text.pdf", {
+      currency: "CAD",
+      dateOrder: "MDY",
+      positiveAmountDirection: "credit",
+    });
     const gas = rows.find((entry) => entry.str.includes("GAS STATION 24"));
+    const coffee = rows.find((entry) => entry.str.includes("COFFEE HOUSE DOWNTOWN"));
 
-    expect((gas?.transaction ?? gas?.partial)?.rawDescription).toBe("GAS STATION 24");
+    expect(gas?.transaction).toMatchObject({
+      rawDescription: "GAS STATION 24",
+      transactionType: "purchase",
+      direction: "debit",
+    });
+    expect(coffee?.transaction?.transactionType).toBe("purchase");
     expect(gas?.rawFields.amountSignNegative).toBe(true);
     expect(gas?.rawFields.fieldSpans?.billedAmount).toMatchObject({
       raw: "-52.10",
       anchor: { page: 1, tokenIds: [expect.any(String)] },
     });
+  });
+
+  it("classifies printed Motion statement labels with the documented sign convention", async () => {
+    const rows = await parseFixture("motion-synthetic-credit-card-statement.pdf", {
+      dateOrder: "MDY",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      periodVerified: true,
+      positiveAmountDirection: "debit",
+    });
+
+    for (const [description, transactionType, direction] of [
+      ["MONTHLY CARD PAYMENT", "payment", "credit"],
+      ["PAYMENT RECEIVED - THANK YOU", "payment", "credit"],
+      ["ONLINE RETAILER RETURN", "refund", "credit"],
+      ["RESTAURANT AUTHORIZED CREDIT", "refund", "credit"],
+      ["BANK SERVICE ADJUSTMENT", "adjustment", "credit"],
+      ["FOREIGN TRANSACTION FEE", "fee", "debit"],
+    ] as const) {
+      const candidate = rows.find((entry) => entry.str.includes(description));
+      expect(candidate?.transaction).toMatchObject({
+        rawDescription: description,
+        transactionType,
+        direction,
+      });
+    }
   });
 
   it("retains all printed Motion original amounts outside the billed column", async () => {
