@@ -23,6 +23,7 @@ environment and run:
 
 ```powershell
 python scripts/extract-motion-golden.py
+npx prettier --write tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json
 ```
 
 The script checks the source digest, reads text with pypdf's visitor callback,
@@ -39,6 +40,17 @@ notes remain separate from billed CAD amounts.
 The golden regression test then takes the committed PDF bytes through real
 PDF.js extraction, line/row reconstruction, and transaction parsing. It emits
 a typed per-fixture report with stage counts, one-to-one page/anchor coverage,
+and a separate count/rate of fully correct matched transactions. Typed fixture
+case definitions record the source-verified date order and signed amount or
+debit/credit column convention; statement periods and currencies are checked
+against the committed truth JSON before setting `periodVerified: true`. The
+test does not infer these settings from parser output.
+
+The Maple truth JSON stores amount magnitudes, while the printed PDF uses
+negative debits and positive credits; the harness keeps its verified
+`positiveAmountDirection: "credit"` and scores direction from the source type
+labels. Motion's new truth JSON retains the signed printed CAD amounts, so its
+direction score uses those signs with `positiveAmountDirection: "debit"`.
 missing/merged/duplicate/false-positive counts, field mismatch counts,
 invalid anchors, review counts, and mismatch examples. Matching is one-to-one
 within 0.015 normalized page-height units of the expected row center; this is

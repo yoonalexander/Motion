@@ -11,6 +11,7 @@ import {
   reconstructDocument,
   type ParsedCandidate,
   type ReconstructionResult,
+  type StatementContext,
 } from "@/lib/pdf";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(path.resolve("public/pdf.worker.mjs")).href;
@@ -45,6 +46,10 @@ interface GoldenFixture {
   accountLabel: string;
   periodStart: string;
   periodEnd: string;
+  periodVerified: boolean;
+  dateOrder?: "MDY" | "DMY";
+  positiveAmountDirection?: "debit" | "credit";
+  amountDirectionSource?: "debit_credit_columns";
   currency: string;
   pageCount: number;
   transactions: GoldenTransaction[];
@@ -58,10 +63,32 @@ interface FixtureDefinition {
   pdfFile: string;
   truthFile: string;
   expectedKind: "text" | "scanned";
+  context: {
+    periodVerified: true;
+    dateOrder: "MDY" | "DMY";
+    positiveAmountDirection?: "debit" | "credit";
+    amountDirectionSource: "signed_amount_column" | "debit_credit_columns";
+    truthAmountsAreSigned: boolean;
+  };
 }
 
 type CriticalField =
-  "transactionDate" | "postingDate" | "amountMinor" | "currency" | "transactionType";
+  | "transactionDate"
+  | "postingDate"
+  | "amountMinor"
+  | "currency"
+  | "transactionType"
+  | "billedExponent"
+  | "merchantText"
+  | "originalAmountMinor"
+  | "originalCurrency"
+  | "originalExponent"
+  | "amountDirection"
+  | "sourceAnchor";
+
+type GoldenParserContext = StatementContext & {
+  positiveAmountDirection?: "debit" | "credit";
+};
 
 interface GoldenExample {
   sourceRowId: string;
@@ -88,6 +115,8 @@ interface GoldenReport {
   groundTruthRows: number;
   anchorAlignedRows: number;
   anchorAlignmentRate: number;
+  fullyCorrectMatchedRows: number;
+  fullyCorrectMatchedRate: number;
   missingRows: number;
   mergedRows: number;
   duplicateCandidates: number;
@@ -103,24 +132,51 @@ const FIXTURES: FixtureDefinition[] = [
     pdfFile: "layout-a-text.pdf",
     truthFile: "layout-a-text.json",
     expectedKind: "text",
+    context: {
+      periodVerified: true,
+      dateOrder: "MDY",
+      positiveAmountDirection: "credit",
+      amountDirectionSource: "signed_amount_column",
+      truthAmountsAreSigned: false,
+    },
   },
   {
     name: "Cedar two-date debit-credit text layout",
     pdfFile: "layout-b-text.pdf",
     truthFile: "layout-b-text.json",
     expectedKind: "text",
+    context: {
+      periodVerified: true,
+      dateOrder: "DMY",
+      amountDirectionSource: "debit_credit_columns",
+      truthAmountsAreSigned: false,
+    },
   },
   {
     name: "Motion four-page CAD text statement",
     pdfFile: "motion-synthetic-credit-card-statement.pdf",
     truthFile: "motion-synthetic-credit-card-statement.json",
     expectedKind: "text",
+    context: {
+      periodVerified: true,
+      dateOrder: "MDY",
+      positiveAmountDirection: "debit",
+      amountDirectionSource: "signed_amount_column",
+      truthAmountsAreSigned: true,
+    },
   },
   {
     name: "Harbour scanned no-text layout",
     pdfFile: "layout-c-scanned.pdf",
     truthFile: "layout-c-scanned.json",
     expectedKind: "scanned",
+    context: {
+      periodVerified: true,
+      dateOrder: "MDY",
+      positiveAmountDirection: "debit",
+      amountDirectionSource: "signed_amount_column",
+      truthAmountsAreSigned: true,
+    },
   },
 ];
 
@@ -169,31 +225,182 @@ function validAnchor(candidate: ParsedCandidate, pageCount: number): boolean {
 function rowHasExactMatch(
   truth: GoldenTransaction,
   candidate: ParsedCandidate,
+  fixtureDefinition: FixtureDefinition,
 ): { exact: boolean; mismatches: CriticalField[]; examples: GoldenExample[] } {
   const transaction = candidate.transaction;
   const mismatches: CriticalField[] = [];
   const examples: GoldenExample[] = [];
-  const compare = (field: CriticalField, expected: string, actual: string | null | undefined) => {
+  const compare = (
+    field: CriticalField,
+    expected: string | null,
+    actual: string | null | undefined,
+  ) => {
     if (actual !== expected) {
       mismatches.push(field);
       examples.push({
         sourceRowId: truth.sourceRowId,
         page: truth.sourceAnchor.page,
         field,
-        source: expected,
+        source: expected ?? "<none>",
         parsed: actual ?? null,
       });
     }
   };
 
   compare("transactionDate", truth.transactionDate, transaction?.transactionDate);
-  if (truth.postingDate) {
-    compare("postingDate", truth.postingDate, transaction?.postingDate);
-  }
+  compare("postingDate", truth.postingDate ?? null, transaction?.postingDate ?? null);
   compare("amountMinor", truth.billedAmount.amountMinor, transaction?.billedAmount.amountMinor);
   compare("currency", truth.billedAmount.currency, transaction?.billedAmount.currency);
   compare("transactionType", truth.transactionType, transaction?.transactionType);
+  compare(
+    "amountDirection",
+    expectedAmountDirection(truth, fixtureDefinition),
+    actualAmountDirection(candidate, fixtureDefinition),
+  );
+  const actualAnchor = transaction?.sourceAnchor
+    ? JSON.stringify([
+        transaction.sourceAnchor.page,
+        transaction.sourceAnchor.bbox,
+        transaction.sourceAnchor.tokenIds ?? [],
+      ])
+    : null;
+  const normalizedExpectedAnchor = JSON.stringify([
+    candidate.page,
+    candidate.bbox,
+    candidate.tokenIds,
+  ]);
+  compare("sourceAnchor", normalizedExpectedAnchor, actualAnchor);
+  compare(
+    "billedExponent",
+    String(truth.billedAmount.exponent),
+    transaction?.billedAmount.exponent === undefined
+      ? undefined
+      : String(transaction.billedAmount.exponent),
+  );
+  compare(
+    "merchantText",
+    normalizeMerchant(truth.rawDescription),
+    transaction?.rawDescription ? normalizeMerchant(transaction.rawDescription) : undefined,
+  );
+  if (truth.originalAmount) {
+    compare(
+      "originalAmountMinor",
+      truth.originalAmount.amountMinor,
+      transaction?.originalAmount?.amountMinor,
+    );
+    compare(
+      "originalCurrency",
+      truth.originalAmount.currency,
+      transaction?.originalAmount?.currency,
+    );
+    compare(
+      "originalExponent",
+      String(truth.originalAmount.exponent),
+      transaction?.originalAmount?.exponent === undefined
+        ? undefined
+        : String(transaction.originalAmount.exponent),
+    );
+  }
   return { exact: mismatches.length === 0, mismatches, examples };
+}
+
+function expectedAmountDirection(
+  transaction: GoldenTransaction,
+  fixtureDefinition: FixtureDefinition,
+): "debit" | "credit" {
+  if (fixtureDefinition.context.amountDirectionSource === "debit_credit_columns") {
+    return ["refund", "payment", "deposit"].includes(transaction.transactionType)
+      ? "credit"
+      : "debit";
+  }
+  const positiveDirection = fixtureDefinition.context.positiveAmountDirection;
+  if (!positiveDirection) {
+    throw new Error(`${transaction.sourceRowId} is missing its printed sign convention`);
+  }
+  if (!fixtureDefinition.context.truthAmountsAreSigned) {
+    return ["refund", "payment", "deposit"].includes(transaction.transactionType)
+      ? "credit"
+      : "debit";
+  }
+  return BigInt(transaction.billedAmount.amountMinor) < 0n
+    ? positiveDirection === "debit"
+      ? "credit"
+      : "debit"
+    : positiveDirection;
+}
+
+function actualAmountDirection(
+  candidate: ParsedCandidate,
+  fixture: FixtureDefinition,
+): "debit" | "credit" | null {
+  const finalizedDirection = (
+    candidate.transaction as
+      | (typeof candidate.transaction & {
+          direction?: "debit" | "credit";
+        })
+      | undefined
+  )?.direction;
+  if (finalizedDirection) return finalizedDirection;
+
+  if (fixture.context.amountDirectionSource === "debit_credit_columns") {
+    return candidate.rawFields.amountDirection ?? null;
+  }
+  const positiveDirection = fixture.context.positiveAmountDirection;
+  if (!positiveDirection) return null;
+  return candidate.rawFields.amountSignNegative
+    ? positiveDirection === "debit"
+      ? "credit"
+      : "debit"
+    : positiveDirection;
+}
+
+function normalizeMerchant(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function makeVerifiedContext(
+  fixture: FixtureDefinition,
+  truth: GoldenFixture,
+): GoldenParserContext {
+  if (fixture.context.periodVerified !== true || !fixture.context.dateOrder) {
+    throw new Error(`${fixture.name} is missing verified date context`);
+  }
+  if (
+    fixture.context.amountDirectionSource === "signed_amount_column" &&
+    !fixture.context.positiveAmountDirection
+  ) {
+    throw new Error(`${fixture.name} is missing a verified signed-amount convention`);
+  }
+  if (truth.periodStart > truth.periodEnd || !truth.currency) {
+    throw new Error(`${fixture.name} ground truth has invalid statement context`);
+  }
+  if (
+    truth.periodVerified !== undefined &&
+    truth.periodVerified !== fixture.context.periodVerified
+  ) {
+    throw new Error(`${fixture.name} context does not match its source truth`);
+  }
+  if (truth.dateOrder !== undefined && truth.dateOrder !== fixture.context.dateOrder) {
+    throw new Error(`${fixture.name} date order disagrees with its source truth`);
+  }
+  if (
+    truth.positiveAmountDirection !== undefined &&
+    truth.positiveAmountDirection !== fixture.context.positiveAmountDirection
+  ) {
+    throw new Error(`${fixture.name} signed amount convention disagrees with its source truth`);
+  }
+
+  const common: GoldenParserContext = {
+    periodStart: truth.periodStart,
+    periodEnd: truth.periodEnd,
+    periodVerified: fixture.context.periodVerified,
+    dateOrder: fixture.context.dateOrder,
+    currency: truth.currency,
+    bankName: truth.bankName,
+    accountLabel: truth.accountLabel,
+    positiveAmountDirection: fixture.context.positiveAmountDirection,
+  };
+  return common;
 }
 
 async function buildReport(
@@ -213,9 +420,17 @@ async function buildReport(
     amountMinor: 0,
     currency: 0,
     transactionType: 0,
+    billedExponent: 0,
+    merchantText: 0,
+    originalAmountMinor: 0,
+    originalCurrency: 0,
+    originalExponent: 0,
+    amountDirection: 0,
+    sourceAnchor: 0,
   };
   const examples: GoldenExample[] = [];
   let anchorAlignedRows = 0;
+  let fullyCorrectMatchedRows = 0;
   let missingRows = 0;
   let mergedRows = 0;
 
@@ -255,11 +470,21 @@ async function buildReport(
             MAX_ANCHOR_CENTER_DELTA,
       );
       if (nearby.length > 0) mergedRows++;
-      mismatches.transactionDate++;
-      if (expected.postingDate) mismatches.postingDate++;
-      mismatches.amountMinor++;
-      mismatches.currency++;
-      mismatches.transactionType++;
+      const missingFields: CriticalField[] = [
+        "transactionDate",
+        "amountMinor",
+        "currency",
+        "transactionType",
+        "amountDirection",
+        "sourceAnchor",
+        "billedExponent",
+        "merchantText",
+      ];
+      if (expected.postingDate) missingFields.push("postingDate");
+      if (expected.originalAmount) {
+        missingFields.push("originalAmountMinor", "originalCurrency", "originalExponent");
+      }
+      for (const field of missingFields) mismatches[field]++;
       const closest = candidates
         .filter((candidate) => candidate.page === expected.sourceAnchor.page)
         .map((candidate) => ({
@@ -278,7 +503,8 @@ async function buildReport(
     }
 
     anchorAlignedRows++;
-    const result = rowHasExactMatch(expected, match.candidate);
+    const result = rowHasExactMatch(expected, match.candidate, fixture);
+    if (result.exact) fullyCorrectMatchedRows++;
     for (const field of result.mismatches) mismatches[field]++;
     examples.push(...result.examples);
   });
@@ -307,6 +533,7 @@ async function buildReport(
       !transaction.billedAmount.amountMinor ||
       !transaction.billedAmount.currency ||
       transaction.transactionType === "unknown" ||
+      !actualAmountDirection(candidate, fixture) ||
       candidate.flags.some((flag) => String(flag).startsWith("ambiguous_")) ||
       (candidate.rawFields.dateLikeMatches.length > 1 && !transaction.postingDate)
     );
@@ -330,6 +557,10 @@ async function buildReport(
     groundTruthRows: truth.transactions.length,
     anchorAlignedRows,
     anchorAlignmentRate: Number((anchorAlignedRows / truth.transactions.length).toFixed(4)),
+    fullyCorrectMatchedRows,
+    fullyCorrectMatchedRate: Number(
+      (fullyCorrectMatchedRows / truth.transactions.length).toFixed(4),
+    ),
     missingRows,
     mergedRows,
     duplicateCandidates,
@@ -354,18 +585,10 @@ describe("NEI-006 real-PDF golden regression pipeline", () => {
       const sourceHash = createHash("sha256").update(bytes).digest("hex");
       if (truth.sourceSha256) expect(sourceHash).toBe(truth.sourceSha256);
 
-      // These inputs give the parser verified statement context. Maple and
-      // Cedar date-order resolution is exercised by the downstream issue #2
-      // update; until then, ambiguous source dates remain visible as failures.
       const extraction = await extractDocumentText(document);
       const reconstruction = reconstructDocument(extraction);
-      const parsed = parseDocumentCandidates(reconstruction, {
-        periodStart: truth.periodStart,
-        periodEnd: truth.periodEnd,
-        currency: truth.currency,
-        bankName: truth.bankName,
-        accountLabel: truth.accountLabel,
-      });
+      const context = makeVerifiedContext(fixture, truth);
+      const parsed = parseDocumentCandidates(reconstruction, context);
       const report = await buildReport(
         fixture,
         truth,
@@ -390,15 +613,17 @@ describe("NEI-006 real-PDF golden regression pipeline", () => {
         report.fixture === "layout-a-text.pdf" || report.fixture === "layout-b-text.pdf" ? 12 : 60,
       );
       expect(report.anchorAlignedRows, report.fixture).toBe(report.groundTruthRows);
+      expect(report.fullyCorrectMatchedRows, report.fixture).toBe(report.groundTruthRows);
+      expect(report.fullyCorrectMatchedRate, report.fixture).toBe(1);
       expect(report.missingRows, report.fixture).toBe(0);
       expect(report.mergedRows, report.fixture).toBe(0);
       expect(report.duplicateCandidates, report.fixture).toBe(0);
       expect(report.falsePositiveCandidates, report.fixture).toBe(0);
       expect(report.invalidSourceAnchors, report.fixture).toBe(0);
       expect(report.stageCounts.readyWithUnresolvedFields, report.fixture).toBe(0);
-      expect(Object.values(report.criticalFieldMismatches), report.fixture).toEqual([
-        0, 0, 0, 0, 0,
-      ]);
+      expect(Object.values(report.criticalFieldMismatches), report.fixture).toEqual(
+        Array(Object.keys(report.criticalFieldMismatches).length).fill(0),
+      );
     }
   });
 
