@@ -1,10 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
-import {
-  extractDocumentText,
-  reconstructDocument,
-  type ReconstructionResult,
-} from "@/lib/pdf";
+import { extractDocumentText, reconstructDocument, type ReconstructionResult } from "@/lib/pdf";
 
 const mockGetDocument = vi.fn();
 const mockGetPage = vi.fn();
@@ -32,7 +28,7 @@ function makePage(
     width: number;
     height: number;
     hasEOL?: boolean;
-  }>
+  }>,
 ): PDFPageProxy {
   return {
     pageNumber,
@@ -50,7 +46,7 @@ function makePage(
   } as unknown as PDFPageProxy;
 }
 
-describe("Motion_Synthetic_Credit_Card_Statement.pdf integration pipeline", () => {
+describe("Reconstruction of a positioned PDF.js document", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -58,38 +54,76 @@ describe("Motion_Synthetic_Credit_Card_Statement.pdf integration pipeline", () =
     mockGetPage.mockImplementation((pageNumber: number) => {
       if (pageNumber === 1) {
         return Promise.resolve(
-          makePage(1, [0, 0, 600, 800], [
-            // Header - not transaction-like
-            { str: "ACCOUNT STATEMENT", transform: [1, 0, 0, 1, 200, 720], width: 120, height: 12 },
-            { str: "SEPTEMBER 2026", transform: [1, 0, 0, 1, 230, 700], width: 80, height: 10 },
-            // Transaction 1
-            { str: "09/02/2026", transform: [1, 0, 0, 1, 39.24, 638.4], width: 70, height: 10 },
-            { str: "COFFEE HOUSE DOWNTOWN", transform: [1, 0, 0, 1, 150, 638.4], width: 150, height: 10 },
-            { str: "4.85", transform: [1, 0, 0, 1, 450, 638.4], width: 30, height: 10 },
-            // Transaction 2
-            { str: "09/03/2026", transform: [1, 0, 0, 1, 39.24, 600], width: 70, height: 10 },
-            { str: "METRO GROCERY #142", transform: [1, 0, 0, 1, 150, 600], width: 130, height: 10 },
-            { str: "86.42", transform: [1, 0, 0, 1, 450, 600], width: 35, height: 10 },
-            // Transaction 3 (multiline description)
-            { str: "09/05/2026", transform: [1, 0, 0, 1, 39.24, 560], width: 70, height: 10 },
-            { str: "STREAMING SUBSCRIPTION", transform: [1, 0, 0, 1, 150, 560], width: 140, height: 10 },
-            { str: "16.99", transform: [1, 0, 0, 1, 450, 560], width: 35, height: 10 },
-            // Footer
-            { str: "TOTAL BALANCE 1200.00", transform: [1, 0, 0, 1, 39.24, 400], width: 120, height: 10 },
-          ])
+          makePage(
+            1,
+            [0, 0, 600, 800],
+            [
+              // Header - not transaction-like
+              {
+                str: "ACCOUNT STATEMENT",
+                transform: [1, 0, 0, 1, 200, 720],
+                width: 120,
+                height: 12,
+              },
+              { str: "SEPTEMBER 2026", transform: [1, 0, 0, 1, 230, 700], width: 80, height: 10 },
+              // Transaction 1
+              { str: "09/02/2026", transform: [1, 0, 0, 1, 39.24, 638.4], width: 70, height: 10 },
+              {
+                str: "COFFEE HOUSE DOWNTOWN",
+                transform: [1, 0, 0, 1, 150, 638.4],
+                width: 150,
+                height: 10,
+              },
+              { str: "4.85", transform: [1, 0, 0, 1, 450, 638.4], width: 30, height: 10 },
+              // Transaction 2
+              { str: "09/03/2026", transform: [1, 0, 0, 1, 39.24, 600], width: 70, height: 10 },
+              {
+                str: "METRO GROCERY #142",
+                transform: [1, 0, 0, 1, 150, 600],
+                width: 130,
+                height: 10,
+              },
+              { str: "86.42", transform: [1, 0, 0, 1, 450, 600], width: 35, height: 10 },
+              // Transaction 3 (multiline description)
+              { str: "09/05/2026", transform: [1, 0, 0, 1, 39.24, 560], width: 70, height: 10 },
+              {
+                str: "STREAMING SUBSCRIPTION",
+                transform: [1, 0, 0, 1, 150, 560],
+                width: 140,
+                height: 10,
+              },
+              { str: "16.99", transform: [1, 0, 0, 1, 450, 560], width: 35, height: 10 },
+              // Footer
+              {
+                str: "TOTAL BALANCE 1200.00",
+                transform: [1, 0, 0, 1, 39.24, 400],
+                width: 120,
+                height: 10,
+              },
+            ],
+          ),
         );
       } else {
         return Promise.resolve(
-          makePage(2, [0, 0, 600, 800], [
-            // Transaction 4
-            { str: "09/07/2026", transform: [1, 0, 0, 1, 39.24, 638.4], width: 70, height: 10 },
-            { str: "GAS STATION 24", transform: [1, 0, 0, 1, 150, 638.4], width: 100, height: 10 },
-            { str: "52.10", transform: [1, 0, 0, 1, 450, 638.4], width: 30, height: 10 },
-            // Transaction 5
-            { str: "09/09/2026", transform: [1, 0, 0, 1, 39.24, 600], width: 70, height: 10 },
-            { str: "PHARMACY", transform: [1, 0, 0, 1, 150, 600], width: 60, height: 10 },
-            { str: "23.75", transform: [1, 0, 0, 1, 450, 600], width: 30, height: 10 },
-          ])
+          makePage(
+            2,
+            [0, 0, 600, 800],
+            [
+              // Transaction 4
+              { str: "09/07/2026", transform: [1, 0, 0, 1, 39.24, 638.4], width: 70, height: 10 },
+              {
+                str: "GAS STATION 24",
+                transform: [1, 0, 0, 1, 150, 638.4],
+                width: 100,
+                height: 10,
+              },
+              { str: "52.10", transform: [1, 0, 0, 1, 450, 638.4], width: 30, height: 10 },
+              // Transaction 5
+              { str: "09/09/2026", transform: [1, 0, 0, 1, 39.24, 600], width: 70, height: 10 },
+              { str: "PHARMACY", transform: [1, 0, 0, 1, 150, 600], width: 60, height: 10 },
+              { str: "23.75", transform: [1, 0, 0, 1, 450, 600], width: 30, height: 10 },
+            ],
+          ),
         );
       }
     });
@@ -137,12 +171,10 @@ describe("Motion_Synthetic_Credit_Card_Statement.pdf integration pipeline", () =
     const extraction = await extractDocumentText(mockDocument);
     const reconstructed: ReconstructionResult = reconstructDocument(extraction);
 
-    // Should detect at least one table across the two pages
-    const totalTables = reconstructed.pages.reduce(
-      (sum, p) => sum + p.tables.length,
-      0
-    );
-    expect(totalTables).toBeGreaterThan(0);
+    expect(reconstructed.pages.map((page) => page.tables.map((table) => table.lineCount))).toEqual([
+      [3],
+      [2],
+    ]);
 
     for (const page of reconstructed.pages) {
       for (const table of page.tables) {
@@ -162,11 +194,10 @@ describe("Motion_Synthetic_Credit_Card_Statement.pdf integration pipeline", () =
     const extraction = await extractDocumentText(mockDocument);
     const reconstructed: ReconstructionResult = reconstructDocument(extraction);
 
-    const totalCandidates = reconstructed.pages.reduce(
-      (sum, p) => sum + p.candidates.length,
-      0
-    );
-    expect(totalCandidates).toBeGreaterThan(0);
+    const totalCandidates = reconstructed.pages.reduce((sum, p) => sum + p.candidates.length, 0);
+    expect(totalCandidates).toBe(5);
+    expect(reconstructed.coverage.transactionCandidates).toEqual({ detected: 5, suspected: 5 });
+    expect(reconstructed.coverage.verifiedTransactions).toBeNull();
 
     for (const page of reconstructed.pages) {
       for (const candidate of page.candidates) {
@@ -228,13 +259,15 @@ describe("Motion_Synthetic_Credit_Card_Statement.pdf integration pipeline", () =
     // that don't start with a date should be unmatched lines
     const totalUnmatchedLines = reconstructed.pages.reduce(
       (sum, p) => sum + p.unmatchedLineIds.length,
-      0
+      0,
     );
     expect(totalUnmatchedLines).toBeGreaterThanOrEqual(0);
 
     // If there's unmatched content, it should be flagged
     if (reconstructed.hasUnmatchedContent) {
-      expect(reconstructed.totalUnmatchedLines + reconstructed.totalUnmatchedTokens).toBeGreaterThan(0);
+      expect(
+        reconstructed.totalUnmatchedLines + reconstructed.totalUnmatchedTokens,
+      ).toBeGreaterThan(0);
     }
 
     // Every page's diagnostics should be informative

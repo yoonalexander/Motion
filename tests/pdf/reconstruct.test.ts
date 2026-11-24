@@ -24,7 +24,7 @@ function makeToken(
   width: number = 0.05,
   height: number = 0.015,
   page: number = 1,
-  tokenId?: string
+  tokenId?: string,
 ): ExtractedToken {
   return {
     str,
@@ -43,7 +43,7 @@ function makePage(
   tokens: ExtractedToken[],
   page: number = 1,
   width: number = 600,
-  height: number = 800
+  height: number = 800,
 ): ExtractedPage {
   return {
     page,
@@ -124,9 +124,7 @@ describe("reconstructLines", () => {
   });
 
   it("preserves source anchors via lineToAnchor", () => {
-    const page = makePage([
-      makeToken("TEST LINE", 0.05, 0.8, 0.08, 0.015, 1, "tok-test"),
-    ]);
+    const page = makePage([makeToken("TEST LINE", 0.05, 0.8, 0.08, 0.015, 1, "tok-test")]);
 
     const { lines } = reconstructLines(page);
     const anchor = lineToAnchor(lines[0]);
@@ -232,19 +230,43 @@ describe("detectCandidateRows", () => {
   it("detects yearless numeric and named-month dates without starting from unrelated headers", () => {
     const lines: TextLine[] = [
       {
-        lineId: "yearless", str: "10/01  10/02  FRESHMART  56.42", page: 1,
-        bbox: [0.05, 0.8, 0.9, 0.82], tokenIds: ["t1"], tokenCount: 1,
-        yCenter: 0.81, xStart: 0.05, xEnd: 0.9, height: 0.02, diagnostics: [],
+        lineId: "yearless",
+        str: "10/01  10/02  FRESHMART  56.42",
+        page: 1,
+        bbox: [0.05, 0.8, 0.9, 0.82],
+        tokenIds: ["t1"],
+        tokenCount: 1,
+        yCenter: 0.81,
+        xStart: 0.05,
+        xEnd: 0.9,
+        height: 0.02,
+        diagnostics: [],
       },
       {
-        lineId: "named", str: "OCT 03  BOOK SHOP  8.00", page: 1,
-        bbox: [0.05, 0.77, 0.9, 0.79], tokenIds: ["t2"], tokenCount: 1,
-        yCenter: 0.78, xStart: 0.05, xEnd: 0.9, height: 0.02, diagnostics: [],
+        lineId: "named",
+        str: "OCT 03  BOOK SHOP  8.00",
+        page: 1,
+        bbox: [0.05, 0.77, 0.9, 0.79],
+        tokenIds: ["t2"],
+        tokenCount: 1,
+        yCenter: 0.78,
+        xStart: 0.05,
+        xEnd: 0.9,
+        height: 0.02,
+        diagnostics: [],
       },
       {
-        lineId: "header", str: "STATEMENT PERIOD 10/01 - 10/31", page: 1,
-        bbox: [0.05, 0.9, 0.9, 0.92], tokenIds: ["t3"], tokenCount: 1,
-        yCenter: 0.91, xStart: 0.05, xEnd: 0.9, height: 0.02, diagnostics: [],
+        lineId: "header",
+        str: "STATEMENT PERIOD 10/01 - 10/31",
+        page: 1,
+        bbox: [0.05, 0.9, 0.9, 0.92],
+        tokenIds: ["t3"],
+        tokenCount: 1,
+        yCenter: 0.91,
+        xStart: 0.05,
+        xEnd: 0.9,
+        height: 0.02,
+        diagnostics: [],
       },
     ];
 
@@ -252,7 +274,7 @@ describe("detectCandidateRows", () => {
       makePage([], 1) as ExtractedPage,
       lines,
       [],
-      defaultConfig
+      defaultConfig,
     );
 
     expect(candidates.map((candidate) => candidate.lineIds)).toEqual([["yearless"], ["named"]]);
@@ -279,12 +301,7 @@ describe("detectCandidateRows", () => {
     const tables: DetectedTable[] = [];
 
     const page = makePage([], 1, 600, 800);
-    const { candidates } = detectCandidateRows(
-      page as ExtractedPage,
-      lines,
-      tables,
-      defaultConfig
-    );
+    const { candidates } = detectCandidateRows(page as ExtractedPage, lines, tables, defaultConfig);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0].hasDateLikeField).toBe(true);
@@ -325,12 +342,7 @@ describe("detectCandidateRows", () => {
     const tables: DetectedTable[] = [];
 
     const page = makePage([], 1, 600, 800);
-    const { candidates } = detectCandidateRows(
-      page as ExtractedPage,
-      lines,
-      tables,
-      defaultConfig
-    );
+    const { candidates } = detectCandidateRows(page as ExtractedPage, lines, tables, defaultConfig);
 
     expect(candidates).toHaveLength(1);
     expect(candidates[0].multiline).toBe(true);
@@ -362,7 +374,7 @@ describe("detectCandidateRows", () => {
       page as ExtractedPage,
       lines,
       tables,
-      defaultConfig
+      defaultConfig,
     );
 
     expect(candidates).toHaveLength(0);
@@ -406,7 +418,7 @@ describe("detectCandidateRows", () => {
       page as ExtractedPage,
       lines,
       tables,
-      defaultConfig
+      defaultConfig,
     );
 
     expect(candidates).toHaveLength(1);
@@ -451,7 +463,7 @@ describe("reconstructDocument", () => {
         makeToken("GAS STATION", 0.15, 0.8, 0.1, 0.015, 2, "t5"),
         makeToken("52.10", 0.85, 0.8, 0.05, 0.015, 2, "t6"),
       ],
-      2
+      2,
     );
 
     const result: ExtractionResult = {
@@ -472,9 +484,7 @@ describe("reconstructDocument", () => {
   });
 
   it("reports hasUnmatchedContent when unmatched lines exist", () => {
-    const page = makePage([
-      makeToken("ORPHAN TEXT", 0.5, 0.5, 0.08, 0.015, 1, "t-orphan"),
-    ]);
+    const page = makePage([makeToken("ORPHAN TEXT", 0.5, 0.5, 0.08, 0.015, 1, "t-orphan")]);
 
     const result: ExtractionResult = {
       pageCount: 1,
