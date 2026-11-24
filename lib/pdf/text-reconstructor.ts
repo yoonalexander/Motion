@@ -1,9 +1,5 @@
 import "client-only";
-import type {
-  ExtractionResult,
-  ExtractedPage,
-  ExtractedToken,
-} from "./text-extractor";
+import type { ExtractionResult, ExtractedPage, ExtractedToken } from "./text-extractor";
 import type { PdfAnchor } from "@/schemas/transaction";
 
 // ---------------------------------------------------------------------------
@@ -18,6 +14,7 @@ export interface TextLine {
   tokenIds: string[];
   tokenCount: number;
   yCenter: number;
+  baselineY?: number;
   xStart: number;
   xEnd: number;
   height: number;
@@ -76,7 +73,7 @@ export interface ReconstructionResult {
 // ---------------------------------------------------------------------------
 
 export interface ReconstructionConfig {
-  // Vertical tolerance for grouping tokens into the same line (normalized units)
+  // Upper bound on baseline separation for grouping tokens (normalized units).
   lineYTolerance: number;
   // Minimum height ratio for a token to be considered part of a line
   minTokenHeightRatio: number;
@@ -102,15 +99,10 @@ export const defaultConfig: ReconstructionConfig = {
 
 function bboxUnion(
   a: [number, number, number, number] | null,
-  b: [number, number, number, number]
+  b: [number, number, number, number],
 ): [number, number, number, number] {
   if (!a) return b;
-  return [
-    Math.min(a[0], b[0]),
-    Math.min(a[1], b[1]),
-    Math.max(a[2], b[2]),
-    Math.max(a[3], b[3]),
-  ];
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 }
 
 function bboxHeight(bbox: [number, number, number, number]): number {
@@ -122,96 +114,122 @@ function bboxHeight(bbox: [number, number, number, number]): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Groups extracted tokens into visual text lines using geometric proximity.
- *
- * Tokens are sorted by Y-center (top to bottom) and grouped when their
- * Y-centers fall within the configured tolerance. Within each line, tokens
- * are sorted left-to-right by X-start. Lines retain all original token IDs
- * and a bounding box that covers every token in the line.
- *
- * Returns lines and the set of token IDs that could not be grouped.
+ * Groups horizontal tokens on the same visual baseline. Nearby text that
+ * repeats an occupied horizontal position is evidence of a separate line.
+ * All tokens retain their source IDs, including non-horizontal text.
  */
 export function reconstructLines(
   page: ExtractedPage,
-  config: ReconstructionConfig = defaultConfig
+  config: ReconstructionConfig = defaultConfig,
 ): { lines: TextLine[]; unmatchedTokenIds: string[] } {
-  const tokens = page.tokens;
-  const assigned = new Set<string>();
-  const lines: TextLine[] = [];
-
-  // Sort tokens by Y-center (descending: top of page first in PDF space)
-  const sortedTokens = [...tokens].sort((a, b) => b.y - a.y);
-
-  let lineIndex = 0;
-
+  const sortedTokens = [...page.tokens].sort(
+    (a, b) => b.y - a.y || a.bbox[0] - b.bbox[0] || a.tokenId.localeCompare(b.tokenId),
+  );
+  const groups: {
+    anchor: ExtractedToken;
+    tokens: ExtractedToken[];
+    diagnostics: Set<string>;
+  }[] = [];
   for (const token of sortedTokens) {
-    if (assigned.has(token.tokenId)) continue;
-
-    assigned.add(token.tokenId);
-
-    const lineTokens: ExtractedToken[] = [token];
-    const lineYCenter = token.y;
-
-    // Collect nearby tokens into this line
-    for (const other of sortedTokens) {
-      if (assigned.has(other.tokenId)) continue;
-      if (Math.abs(other.y - lineYCenter) <= config.lineYTolerance) {
-        assigned.add(other.tokenId);
-        lineTokens.push(other);
+    const diagnostics = new Set<string>();
+    if (token.baselineEnd) {
+      const dx = (token.baselineEnd[0] - token.x) * page.width;
+      const dy = (token.baselineEnd[1] - token.y) * page.height;
+      if (dx <= 0 || Math.abs(dy) > dx * 0.1) {
+        diagnostics.add("non_horizontal_baseline");
+        groups.push({ anchor: token, tokens: [token], diagnostics });
+        continue;
       }
     }
 
-    // Sort line tokens left-to-right
-    lineTokens.sort((a, b) => a.bbox[0] - b.bbox[0]);
+    let closest: (typeof groups)[number] | undefined;
+    for (let index = groups.length - 1; index >= 0; index--) {
+      const group = groups[index];
+      const gap = group.anchor.y - token.y;
+      if (gap > config.lineYTolerance) break;
+      if (group.diagnostics.has("non_horizontal_baseline")) continue;
 
-    // Build combined line string
-    const str = lineTokens.map((t) => t.str).join(" ");
-
-    // Compute union bounding box
-    let unionBbox: [number, number, number, number] | null = null;
-    for (const t of lineTokens) {
-      unionBbox = bboxUnion(unionBbox, t.bbox);
-    }
-    const bbox = unionBbox!;
-
-    const yCenter = (bbox[1] + bbox[3]) / 2;
-    const height = bboxHeight(bbox);
-
-    const diagnostics: string[] = [];
-    if (lineTokens.length > 1) {
-      const xGaps: number[] = [];
-      for (let i = 1; i < lineTokens.length; i++) {
-        xGaps.push(lineTokens[i].bbox[0] - lineTokens[i - 1].bbox[2]);
+      const shorterFont = Math.min(bboxHeight(group.anchor.bbox), bboxHeight(token.bbox));
+      if (gap > shorterFont * 0.35) continue;
+      if (
+        gap > shorterFont * 0.1 &&
+        group.tokens.some((other) => {
+          const overlap =
+            Math.min(other.bbox[2], token.bbox[2]) - Math.max(other.bbox[0], token.bbox[0]);
+          const narrower = Math.min(other.bbox[2] - other.bbox[0], token.bbox[2] - token.bbox[0]);
+          return overlap > narrower * 0.5;
+        })
+      ) {
+        group.diagnostics.add("nearby_overlapping_baselines");
+        diagnostics.add("nearby_overlapping_baselines");
+        continue;
       }
-      const maxGap = Math.max(...xGaps);
-      if (maxGap > config.columnGapTolerance) {
-        diagnostics.push("possible_column_split");
+      if (closest) {
+        group.diagnostics.add("ambiguous_baseline_group");
+        diagnostics.add("ambiguous_baseline_group");
+      } else {
+        closest = group;
       }
     }
-    if (lineTokens.length === 1) {
-      diagnostics.push("single_token_line");
+    if (closest) {
+      closest.tokens.push(token);
+      for (const diagnostic of diagnostics) closest.diagnostics.add(diagnostic);
+    } else {
+      groups.push({ anchor: token, tokens: [token], diagnostics });
     }
-
-    lines.push({
-      str,
-      page: page.page,
-      lineId: `p${page.page}-l${lineIndex++}`,
-      bbox,
-      tokenIds: lineTokens.map((t) => t.tokenId),
-      tokenCount: lineTokens.length,
-      yCenter,
-      xStart: bbox[0],
-      xEnd: bbox[2],
-      height,
-      diagnostics,
-    });
   }
 
-  const unmatchedTokenIds = tokens
-    .map((t) => t.tokenId)
-    .filter((id) => !assigned.has(id));
+  const lines = groups.map(
+    ({ anchor, tokens: lineTokens, diagnostics: groupDiagnostics }, lineIndex) => {
+      // Sort line tokens left-to-right
+      lineTokens.sort((a, b) => a.bbox[0] - b.bbox[0]);
 
-  return { lines, unmatchedTokenIds };
+      // Build combined line string
+      const str = lineTokens.map((t) => t.str).join(" ");
+
+      // Compute union bounding box
+      let unionBbox: [number, number, number, number] | null = null;
+      for (const t of lineTokens) {
+        unionBbox = bboxUnion(unionBbox, t.bbox);
+      }
+      const bbox = unionBbox!;
+
+      const yCenter = (bbox[1] + bbox[3]) / 2;
+      const height = bboxHeight(bbox);
+
+      const diagnostics = [...groupDiagnostics];
+      if (lineTokens.length > 1) {
+        const xGaps: number[] = [];
+        for (let i = 1; i < lineTokens.length; i++) {
+          xGaps.push(lineTokens[i].bbox[0] - lineTokens[i - 1].bbox[2]);
+        }
+        const maxGap = Math.max(...xGaps);
+        if (maxGap > config.columnGapTolerance) {
+          diagnostics.push("possible_column_split");
+        }
+      }
+      if (lineTokens.length === 1) {
+        diagnostics.push("single_token_line");
+      }
+
+      return {
+        str,
+        page: page.page,
+        lineId: `p${page.page}-l${lineIndex}`,
+        bbox,
+        tokenIds: lineTokens.map((t) => t.tokenId),
+        tokenCount: lineTokens.length,
+        yCenter,
+        baselineY: anchor.y,
+        xStart: bbox[0],
+        xEnd: bbox[2],
+        height,
+        diagnostics,
+      };
+    },
+  );
+
+  return { lines, unmatchedTokenIds: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -332,15 +350,39 @@ export function detectTables(
 
 const dateLikePattern = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/;
 const amountLikePattern = /-?\d[\d,]*(?:\.\d{1,2})?/;
+const amountOnlyPattern = /^(?=.*\d)[\d\s,.'’()+−\-\p{Sc}]+(?:\s*(?:CR|DR))?$/iu;
+const controlLabelPattern =
+  /^(?:(?:opening|closing|previous|new|current|statement|outstanding|available)\s+balance\b|(?:minimum\s+)?payment\s+due\b|amount\s+due\b|credit\s+limit\b|(?:sub)?total\s+(?:balance|debits|credits|payments|purchases|fees|interest)\b|(?:(?:sub)?total|debits|credits)\s*(?=[:\p{Sc}\d]|$))/iu;
+
+function descriptionColumn(line: TextLine, tokensById: ReadonlyMap<string, ExtractedToken>) {
+  const tokens = line.tokenIds.flatMap((id) => {
+    const token = tokensById.get(id);
+    return token ? [token] : [];
+  });
+  const index = tokens.findIndex(
+    (token) =>
+      !token.str
+        .trim()
+        .split(/\s+/)
+        .every((part) => dateLikePattern.test(part)),
+  );
+  const description = tokens[index];
+  if (index <= 0 || !description || amountOnlyPattern.test(description.str.trim())) return null;
+
+  const amount = tokens.slice(index + 1).find((token) => amountOnlyPattern.test(token.str.trim()));
+  return { start: description.bbox[0], end: amount?.bbox[0] };
+}
+
+function lineBaseline(line: TextLine): number {
+  return line.baselineY ?? line.yCenter;
+}
 
 /**
  * Groups reconstructed lines into candidate transaction rows.
  *
  * A candidate row starts with a line that looks like a transaction
  * (typically begins with a date-like token) and may include continuation
- * lines that wrap the description. Lines without date-like or amount-like
- * fields but adjacent to a candidate are treated as possible multiline
- * description continuations.
+ * lines that wrap at the description column on adjacent baselines.
  *
  * Lines that cannot be confidently assigned remain as unmatched lines.
  */
@@ -348,14 +390,16 @@ export function detectCandidateRows(
   page: ExtractedPage,
   lines: TextLine[],
   tables: DetectedTable[],
-  config: ReconstructionConfig = defaultConfig
+  config: ReconstructionConfig = defaultConfig,
 ): { candidates: CandidateTransactionRow[]; unmatchedLineIds: string[] } {
   const tableLineIds = new Set(tables.flatMap((t) => t.lineIds));
   const assignedLineIds = new Set<string>();
   const candidates: CandidateTransactionRow[] = [];
+  const tokensById = new Map(page.tokens.map((token) => [token.tokenId, token]));
 
-  // Sort lines by Y-center (top to bottom)
-  const sortedLines = [...lines].sort((a, b) => b.yCenter - a.yCenter);
+  const sortedLines = lines
+    .filter((line) => !line.diagnostics.includes("non_horizontal_baseline"))
+    .sort((a, b) => lineBaseline(b) - lineBaseline(a) || a.xStart - b.xStart);
 
   let rowIndex = 0;
 
@@ -374,33 +418,45 @@ export function detectCandidateRows(
     const rowLines: TextLine[] = [line];
     assignedLineIds.add(line.lineId);
 
-    // Look ahead for continuation lines (multiline descriptions)
-    let j = i + 1;
-    const dateColumnX = line.xStart;
-    while (j < sortedLines.length) {
+    const diagnostics: string[] = [];
+    const column = descriptionColumn(line, tokensById);
+    // Derive horizontal slack from the row's text size, in normalized x units.
+    const indentTolerance = (line.height * page.height) / page.width;
+    for (let j = i + 1; j < sortedLines.length; j++) {
       const nextLine = sortedLines[j];
       if (assignedLineIds.has(nextLine.lineId)) break;
 
-      // Continuation if:
-      // - Close vertically (same general row area)
-      // - No date-like start (not a new transaction)
-      // - Indented relative to the date column (description wrap, not a new row at the margin)
-      const verticalGap = Math.abs(nextLine.yCenter - line.yCenter);
-      const nextStartsWithDate = dateLikePattern.test(nextLine.str.trim());
-      const isCloseVertically = verticalGap <= config.lineYTolerance * 3;
-      const isIndented = nextLine.xStart > dateColumnX + 0.02;
-
-      if (isCloseVertically && !nextStartsWithDate && isIndented) {
-        assignedLineIds.add(nextLine.lineId);
-        rowLines.push(nextLine);
-        j++;
-      } else {
+      const previous = rowLines[rowLines.length - 1];
+      const gap = lineBaseline(previous) - lineBaseline(nextLine);
+      const maxGap = Math.min(
+        config.lineYTolerance * 3,
+        Math.max(previous.height, nextLine.height) * 1.9,
+      );
+      const text = nextLine.str.trim();
+      if (
+        gap <= 0 ||
+        gap > maxGap ||
+        dateLikePattern.test(text) ||
+        controlLabelPattern.test(text)
+      ) {
         break;
       }
-    }
 
-    // Sort row lines top-to-bottom
-    rowLines.sort((a, b) => b.yCenter - a.yCenter);
+      const inDescriptionColumn = column
+        ? nextLine.xStart >= column.start - indentTolerance &&
+          nextLine.xStart <= column.start + 3 * indentTolerance &&
+          (column.end === undefined || nextLine.xEnd <= column.end + indentTolerance)
+        : nextLine.xStart > line.xStart + indentTolerance &&
+          nextLine.xEnd <= line.xEnd + indentTolerance;
+      if (!inDescriptionColumn || amountOnlyPattern.test(text)) {
+        if (nextLine.xStart > line.xStart + indentTolerance) {
+          diagnostics.push("ambiguous_continuation");
+        }
+        break;
+      }
+      assignedLineIds.add(nextLine.lineId);
+      rowLines.push(nextLine);
+    }
 
     const str = rowLines.map((l) => l.str).join(" | ");
     const tokenIds = rowLines.flatMap((l) => l.tokenIds);
@@ -415,9 +471,20 @@ export function detectCandidateRows(
     const hasAmountLikeField = amountLikePattern.test(str);
     const multiline = rowLines.length > 1;
 
-    const diagnostics: string[] = [];
+    if (
+      rowLines.some((rowLine) =>
+        rowLine.diagnostics.some(
+          (diagnostic) =>
+            diagnostic === "ambiguous_baseline_group" ||
+            diagnostic === "nearby_overlapping_baselines",
+        ),
+      )
+    ) {
+      diagnostics.push("uncertain_line_grouping");
+    }
     if (multiline) {
       diagnostics.push("multiline_description");
+      if (!column) diagnostics.push("uncertain_description_column");
     }
     if (!hasDateLikeField) {
       diagnostics.push("no_date_field");
@@ -449,9 +516,7 @@ export function detectCandidateRows(
   // Unmatched lines: lines that were not assigned to any candidate.
   // Lines inside detected tables that lack date-like fields are especially
   // noteworthy — they may be headers, totals, or missed transaction rows.
-  const unmatchedLineIds = lines
-    .map((l) => l.lineId)
-    .filter((id) => !assignedLineIds.has(id));
+  const unmatchedLineIds = lines.map((l) => l.lineId).filter((id) => !assignedLineIds.has(id));
 
   return { candidates, unmatchedLineIds };
 }
