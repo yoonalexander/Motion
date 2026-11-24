@@ -4,6 +4,7 @@ import type {
   ExtractedPage,
   ExtractedToken,
 } from "./text-extractor";
+import { findDateSpans } from "./date-parser";
 import type { PdfAnchor } from "@/schemas/transaction";
 
 // ---------------------------------------------------------------------------
@@ -330,7 +331,6 @@ export function detectTables(
 // Candidate Row Detection
 // ---------------------------------------------------------------------------
 
-const dateLikePattern = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/;
 const amountLikePattern = /-?\d[\d,]*(?:\.\d{1,2})?/;
 
 /**
@@ -366,7 +366,7 @@ export function detectCandidateRows(
     // A candidate row starts from a line that looks like a transaction
     // (typically begins with a date-like field). Table membership is a
     // strong hint but not required — tables help filter noise, not gate detection.
-    const startsWithDate = dateLikePattern.test(line.str.trim());
+    const startsWithDate = findDateSpans(line.str.trim()).some((span) => span.start === 0);
     if (!startsWithDate) {
       continue;
     }
@@ -386,7 +386,7 @@ export function detectCandidateRows(
       // - No date-like start (not a new transaction)
       // - Indented relative to the date column (description wrap, not a new row at the margin)
       const verticalGap = Math.abs(nextLine.yCenter - line.yCenter);
-      const nextStartsWithDate = dateLikePattern.test(nextLine.str.trim());
+      const nextStartsWithDate = findDateSpans(nextLine.str.trim()).some((span) => span.start === 0);
       const isCloseVertically = verticalGap <= config.lineYTolerance * 3;
       const isIndented = nextLine.xStart > dateColumnX + 0.02;
 
@@ -411,7 +411,7 @@ export function detectCandidateRows(
     }
     const bbox = unionBbox!;
 
-    const hasDateLikeField = dateLikePattern.test(str);
+    const hasDateLikeField = findDateSpans(str).length > 0;
     const hasAmountLikeField = amountLikePattern.test(str);
     const multiline = rowLines.length > 1;
 

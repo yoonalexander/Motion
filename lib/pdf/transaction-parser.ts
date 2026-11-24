@@ -3,6 +3,9 @@ import { z } from "zod";
 import { parseAmount } from "./money-parser";
 import type { CandidateTransactionRow } from "./text-reconstructor";
 import type { ExtractedPage } from "./text-extractor";
+import { findDateSpans, parseDate } from "./date-parser";
+export { findDateSpans, parseDate } from "./date-parser";
+export type { DateSpan } from "./date-parser";
 import {
   parsedTransactionSchema,
   moneySchema,
@@ -27,6 +30,9 @@ export { parseAmount } from "./money-parser";
 export interface StatementContext {
   periodStart?: string; // ISO date YYYY-MM-DD
   periodEnd?: string; // ISO date YYYY-MM-DD
+  /** Set only after statement dates have been verified from source/context. */
+  periodVerified?: boolean;
+  dateOrder?: "MDY" | "DMY";
   currency?: string; // ISO 4217 code
   decimalSeparator?: "." | ",";
   accountLabel?: string;
@@ -76,119 +82,8 @@ export interface ParseResult {
   diagnostics: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Date parsing
-// ---------------------------------------------------------------------------
-
-const isoDatePattern = /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/;
-const usDatePattern = /^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/;
-const euDatePattern = /^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/;
-
-/**
- * Parses a date string into ISO YYYY-MM-DD format.
- *
- * Handles multiple formats:
- * - YYYY-MM-DD (ISO)
- * - MM/DD/YYYY (US)
- * - DD/MM/YYYY (European)
- * - MM/DD/YY and DD/MM/YY (two-digit years)
- *
- * Ambiguity between MM/DD and DD/MM is resolved by:
- * - If first number > 12, it must be DD/MM (day first)
- * - If second number > 12, it must be MM/DD (month first)
- * - Otherwise defaults to MM/DD (US) but flags as ambiguous
- *
- * Year inference: two-digit years are expanded relative to the statement
- * period context (defaulting to 2000-2099 range).
- */
-export function parseDate(
-  raw: string,
-  context: StatementContext
-): { isoDate: string | null; ambiguous: boolean; yearInferred: boolean } {
-  const trimmed = raw.trim();
-  let yearInferred = false;
-
-  // Try ISO format first: YYYY-MM-DD
-  const isoMatch = trimmed.match(isoDatePattern);
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch;
-    const iso = `${y.padStart(4, "0")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-    if (isValidCalendarDate(iso)) {
-      return { isoDate: iso, ambiguous: false, yearInferred: false };
-    }
-    return { isoDate: null, ambiguous: true, yearInferred: false };
-  }
-
-  // Try slash/dash separated: M/D/YYYY or D/M/YYYY
-  const slashMatch = trimmed.match(
-    /^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/
-  );
-  if (!slashMatch) {
-    return { isoDate: null, ambiguous: true, yearInferred: false };
-  }
-
-  const [, n1, n2, yearStr] = slashMatch;
-  const num1 = parseInt(n1, 10);
-  const num2 = parseInt(n2, 10);
-  let year = parseInt(yearStr, 10);
-
-  // Two-digit year expansion
-  if (yearStr.length === 2) {
-    yearInferred = true;
-    const currentYear = context.periodEnd
-      ? parseInt(context.periodEnd.slice(0, 4), 10)
-      : new Date().getFullYear();
-    if (year <= 50) {
-      year = 2000 + year;
-    } else {
-      year = 1900 + year;
-    }
-    // Clamp to statement period ±1 year
-    if (context.periodStart) {
-      const periodYear = parseInt(context.periodStart.slice(0, 4), 10);
-      if (year < periodYear - 1) year = periodYear - 1;
-      if (year > periodYear + 1) year = periodYear + 1;
-    }
-  }
-
-  let month: number;
-  let day: number;
-  let ambiguous = false;
-
-  if (num1 > 12 && num2 <= 12) {
-    // Must be DD/MM (day first)
-    day = num1;
-    month = num2;
-  } else if (num2 > 12 && num1 <= 12) {
-    // Must be MM/DD (month first)
-    month = num1;
-    day = num2;
-  } else if (num1 <= 12 && num2 <= 12) {
-    // Truly ambiguous: could be MM/DD or DD/MM
-    // Default to MM/DD (US convention) but flag as ambiguous
-    month = num1;
-    day = num2;
-    ambiguous = true;
-  } else {
-    // Both > 12: invalid
-    return { isoDate: null, ambiguous: true, yearInferred: false };
-  }
-
-  const iso = `${year}-${month.toString().padStart(2, "0")}-${day
-    .toString()
-    .padStart(2, "0")}`;
-  if (isValidCalendarDate(iso)) {
-    return { isoDate: iso, ambiguous, yearInferred };
-  }
-  return { isoDate: null, ambiguous: true, yearInferred: false };
-}
-
-function isValidCalendarDate(iso: string): boolean {
-  const date = new Date(`${iso}T00:00:00Z`);
-  return (
-    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === iso
-  );
-}
+// Date discovery/resolution lives in date-parser.ts so candidate detection and
+// parser assembly share the same source spans.
 
 // ---------------------------------------------------------------------------
 // Transaction type inference
@@ -265,7 +160,6 @@ export function extractMerchantDescription(
 // Main parser
 // ---------------------------------------------------------------------------
 
-const datePattern = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/;
 const amountPattern = /-?\d[\d,]*(?:\.\d{1,2})?|\(-?\d[\d,]*(?:\.\d{1,2})?\)/;
 
 /**
@@ -297,8 +191,13 @@ export function parseCandidateRow(
   const diagnostics: string[] = [];
 
   // Extract date-like and amount-like matches from the row string
-  const dateMatches = row.str.match(datePattern) ?? [];
-  const amountMatches = row.str.match(amountPattern) ?? [];
+  const dateSpans = findDateSpans(row.str);
+  const dateMatches = dateSpans.map((span) => span.raw);
+  const amountSearch = row.str.split("");
+  for (const span of [...dateSpans].sort((a, b) => b.start - a.start)) {
+    amountSearch.splice(span.start, span.end - span.start, ..." ".repeat(span.end - span.start));
+  }
+  const amountMatches = [...(amountSearch.join("").match(amountPattern) ?? [])];
   rawFields.dateLikeMatches = dateMatches;
   rawFields.amountLikeMatches = amountMatches;
 

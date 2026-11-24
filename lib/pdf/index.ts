@@ -47,6 +47,8 @@ export {
   type RawParsedFields,
   type ParseResult,
 } from "./transaction-parser";
+export { findDateSpans } from "./date-parser";
+export type { DateSpan, DateParseContext, ParsedDate } from "./date-parser";
 
 /**
  * Loads a PDF file from the browser's File object into a PDF.js document.
