@@ -55,7 +55,22 @@ export interface PageReconstruction {
   candidates: CandidateTransactionRow[];
   unmatchedTokenIds: string[];
   unmatchedLineIds: string[];
+  suspectedUnmatchedLines: SuspectedUnmatchedLine[];
+  coverage: ReconstructionCoverage;
   diagnostics: string[];
+}
+
+export interface SuspectedUnmatchedLine {
+  lineId: string;
+  reason: "amount_in_transaction_region";
+}
+
+export interface ReconstructionCoverage {
+  tokensAssignedToLines: { assigned: number; extracted: number };
+  // The denominator includes only candidates and independently flagged lines, not all transactions.
+  transactionCandidates: { detected: number; suspected: number };
+  // Reconstruction has no independent count of the transactions printed on the statement.
+  verifiedTransactions: null;
 }
 
 export interface ReconstructionResult {
@@ -67,6 +82,7 @@ export interface ReconstructionResult {
   totalUnmatchedTokens: number;
   totalUnmatchedLines: number;
   hasUnmatchedContent: boolean;
+  coverage: ReconstructionCoverage;
 }
 
 // ---------------------------------------------------------------------------
@@ -237,120 +253,151 @@ export function reconstructLines(
 // Table Detection
 // ---------------------------------------------------------------------------
 
-/**
- * Detects likely transaction-table regions on a page.
- *
- * A table is identified when multiple consecutive lines show consistent
- * column alignment (tokens appearing at similar X positions across lines).
- * Column boundaries are inferred from the distribution of token X-starts
- * across lines, not from hardcoded positions.
- *
- * Pages with fewer than minTableLines lines are not considered tables.
- */
+const amountCellPattern =
+  /^(?=.*\d)(?:[A-Z]{3}\s+)?[+−(\-]?\s*\p{Sc}?\s*[.,]?\d(?:[\d., '’]*\d)?\s*[-)]?\s*(?:\p{Sc}|CR|DR|[A-Z]{3})?$/u;
+
+function lastAmountCell(tokens: ExtractedToken[]): ExtractedToken | undefined {
+  for (let index = tokens.length - 1; index >= Math.max(0, tokens.length - 3); index--) {
+    const text = tokens
+      .slice(index)
+      .map((token) => token.str.trim())
+      .join(" ");
+    if (amountCellPattern.test(text)) return tokens[index];
+  }
+}
+
+function getLineTokens(line: TextLine, tokensById: ReadonlyMap<string, ExtractedToken>) {
+  return line.tokenIds.flatMap((id) => {
+    const token = tokensById.get(id);
+    return token ? [token] : [];
+  });
+}
+
+interface TableRowPattern {
+  line: TextLine;
+  columnStarts: number[];
+}
+
+function rowPattern(
+  line: TextLine,
+  tokensById: ReadonlyMap<string, ExtractedToken>,
+  config: ReconstructionConfig,
+): TableRowPattern | undefined {
+  if (
+    line.diagnostics.includes("non_horizontal_baseline") ||
+    !findDateSpans(line.str.trim()).some((span) => span.start === 0)
+  ) {
+    return;
+  }
+
+  const tokens = getLineTokens(line, tokensById);
+  const amount = lastAmountCell(tokens);
+  if (!amount || amount === tokens[0]) return;
+
+  const columnStarts = tokens
+    .filter(
+      (token, index) =>
+        index === 0 ||
+        token === amount ||
+        token.bbox[0] - tokens[index - 1].bbox[2] >= config.columnGapTolerance,
+    )
+    .map((token) => token.bbox[0]);
+  if (columnStarts.length >= 2) return { line, columnStarts };
+}
+
+function matchingColumns(left: number[], right: number[], tolerance: number): number {
+  let matches = 0;
+  let rightIndex = 0;
+  for (const column of left) {
+    while (rightIndex < right.length && right[rightIndex] < column - tolerance) rightIndex++;
+    if (rightIndex === right.length) break;
+    if (Math.abs(right[rightIndex] - column) <= tolerance) {
+      matches++;
+      rightIndex++;
+    }
+  }
+  return matches;
+}
+
+function repeatedColumns(rows: TableRowPattern[], tolerance: number): number[] {
+  const clusters: { start: number; observations: Map<string, number> }[] = [];
+  for (const { line, columnStarts } of rows) {
+    for (const start of columnStarts) {
+      const cluster = clusters.find((entry) => Math.abs(entry.start - start) <= tolerance);
+      if (cluster) {
+        if (!cluster.observations.has(line.lineId)) cluster.observations.set(line.lineId, start);
+      } else {
+        clusters.push({ start, observations: new Map([[line.lineId, start]]) });
+      }
+    }
+  }
+  return clusters
+    .filter(({ observations }) => observations.size >= 2)
+    .map(
+      ({ observations }) =>
+        [...observations.values()].reduce((sum, value) => sum + value, 0) / observations.size,
+    )
+    .sort((left, right) => left - right);
+}
+
+/** Detects locally repeated dated, multi-column rows with monetary-looking tails. */
 export function detectTables(
   page: ExtractedPage,
   lines: TextLine[],
   config: ReconstructionConfig = defaultConfig,
 ): DetectedTable[] {
-  if (lines.length < config.minTableLines) {
-    return [];
-  }
-
-  // Collect all token X-start positions across all lines to find column clusters.
-  // Column boundaries are inferred from the distribution of token X positions,
-  // not from line start positions (all transaction lines start at the same margin).
-  const tokenXStarts: number[] = [];
-  const tokensByLine = new Map<string, ExtractedToken[]>();
-  for (const line of lines) {
-    tokensByLine.set(
-      line.lineId,
-      page.tokens.filter((t) => line.tokenIds.includes(t.tokenId)),
-    );
-  }
-  for (const lineTokens of tokensByLine.values()) {
-    for (const t of lineTokens) {
-      tokenXStarts.push(t.x);
-    }
-  }
-  tokenXStarts.sort((a, b) => a - b);
-
-  // Cluster X positions into columns
-  const clusters: number[] = [];
-  let currentCluster: number[] = [];
-  for (const x of tokenXStarts) {
-    if (
-      currentCluster.length === 0 ||
-      x - currentCluster[currentCluster.length - 1] <= config.columnXTolerance
-    ) {
-      currentCluster.push(x);
-    } else {
-      clusters.push(currentCluster.reduce((sum, v) => sum + v, 0) / currentCluster.length);
-      currentCluster = [x];
-    }
-  }
-  if (currentCluster.length > 0) {
-    clusters.push(currentCluster.reduce((sum, v) => sum + v, 0) / currentCluster.length);
-  }
-
-  // A table needs at least 2 distinct columns
-  if (clusters.length < 2) {
-    return [];
-  }
-
-  // Group consecutive lines that have tokens in detected columns
+  const tokensById = new Map(page.tokens.map((token) => [token.tokenId, token]));
+  const orderedLines = [...lines].sort((a, b) => lineBaseline(b) - lineBaseline(a));
   const tables: DetectedTable[] = [];
-  const tableLineGroups: TextLine[][] = [];
-  let currentGroup: TextLine[] = [];
+  let group: TableRowPattern[] = [];
 
-  for (const line of lines) {
-    const lineTokens = tokensByLine.get(line.lineId) ?? [];
-    const hasColumnAlignment = lineTokens.some((t) =>
-      clusters.some((cx) => Math.abs(t.x - cx) <= config.columnXTolerance),
-    );
-    if (hasColumnAlignment) {
-      currentGroup.push(line);
-    } else {
-      if (currentGroup.length >= config.minTableLines) {
-        tableLineGroups.push(currentGroup);
+  const finishGroup = () => {
+    if (group.length >= Math.max(2, config.minTableLines)) {
+      const columns = repeatedColumns(group, config.columnXTolerance);
+      if (columns.length >= 2) {
+        const [first, ...rest] = group;
+        const bbox = rest.reduce(
+          (bounds, { line }) => bboxUnion(bounds, line.bbox),
+          first.line.bbox,
+        );
+        tables.push({
+          page: page.page,
+          tableId: `p${page.page}-t${tables.length}`,
+          bbox,
+          columns,
+          lineIds: group.map(({ line }) => line.lineId),
+          lineCount: group.length,
+          diagnostics: ["repeated_date_and_amount_columns"],
+        });
       }
-      currentGroup = [];
     }
+    group = [];
+  };
+
+  for (const line of orderedLines) {
+    if (controlLabelPattern.test(line.str.trim())) {
+      finishGroup();
+      continue;
+    }
+    const row = rowPattern(line, tokensById, config);
+    if (!row) continue;
+    const previous = group.at(-1);
+    if (previous) {
+      const distance = lineBaseline(previous.line) - lineBaseline(line);
+      const localSpacing = 6 * Math.max(previous.line.height, line.height);
+      if (
+        distance > localSpacing ||
+        Math.abs(previous.line.xStart - line.xStart) > config.columnXTolerance ||
+        matchingColumns(previous.columnStarts, row.columnStarts, config.columnXTolerance) < 2
+      ) {
+        finishGroup();
+      }
+    }
+    group.push(row);
   }
-  if (currentGroup.length >= config.minTableLines) {
-    tableLineGroups.push(currentGroup);
-  }
-
-  let tableIndex = 0;
-  for (const group of tableLineGroups) {
-    const lineIds = group.map((l) => l.lineId);
-    let unionBbox: [number, number, number, number] | null = null;
-    for (const line of group) {
-      unionBbox = bboxUnion(unionBbox, line.bbox);
-    }
-    const bbox = unionBbox!;
-
-    const diagnostics: string[] = [];
-    if (group.length >= 5) {
-      diagnostics.push("multi_line_table");
-    }
-    if (clusters.length > 3) {
-      diagnostics.push("multi_column_table");
-    }
-
-    tables.push({
-      page: page.page,
-      tableId: `p${page.page}-t${tableIndex++}`,
-      bbox,
-      columns: clusters,
-      lineIds,
-      lineCount: group.length,
-      diagnostics,
-    });
-  }
-
+  finishGroup();
   return tables;
 }
-
 // ---------------------------------------------------------------------------
 // Candidate Row Detection
 // ---------------------------------------------------------------------------
@@ -361,10 +408,7 @@ const controlLabelPattern =
   /^(?:(?:opening|closing|previous|new|current|statement|outstanding|available)\s+balance\b|(?:minimum\s+)?payment\s+due\b|amount\s+due\b|credit\s+limit\b|(?:sub)?total\s+(?:balance|debits|credits|payments|purchases|fees|interest)\b|(?:(?:sub)?total|debits|credits)\s*(?=[:\p{Sc}\d]|$))/iu;
 
 function descriptionColumn(line: TextLine, tokensById: ReadonlyMap<string, ExtractedToken>) {
-  const tokens = line.tokenIds.flatMap((id) => {
-    const token = tokensById.get(id);
-    return token ? [token] : [];
-  });
+  const tokens = getLineTokens(line, tokensById);
   const index = tokens.findIndex((token) => {
     const text = token.str.trim();
     let end = 0;
@@ -533,6 +577,44 @@ export function detectCandidateRows(
 // Full Page Reconstruction
 // ---------------------------------------------------------------------------
 
+function findSuspectedUnmatchedLines(
+  page: ExtractedPage,
+  lines: TextLine[],
+  unmatchedLineIds: string[],
+  tables: DetectedTable[],
+  config: ReconstructionConfig,
+): SuspectedUnmatchedLine[] {
+  const unmatched = new Set(unmatchedLineIds);
+  const tokensById = new Map(page.tokens.map((token) => [token.tokenId, token]));
+  const suspected: SuspectedUnmatchedLine[] = [];
+
+  for (const line of lines) {
+    if (
+      !unmatched.has(line.lineId) ||
+      line.diagnostics.includes("non_horizontal_baseline") ||
+      controlLabelPattern.test(line.str.trim())
+    ) {
+      continue;
+    }
+    const tokens = getLineTokens(line, tokensById);
+    const amount = lastAmountCell(tokens);
+    if (!amount || amount === tokens[0]) continue;
+    const matchingTable = tables.some(({ bbox, columns }) => {
+      const baseline = lineBaseline(line);
+      return (
+        baseline >= bbox[1] &&
+        baseline <= bbox[3] &&
+        columns
+          .slice(1)
+          .some((column) => Math.abs(amount.bbox[0] - column) <= config.columnXTolerance)
+      );
+    });
+    if (matchingTable)
+      suspected.push({ lineId: line.lineId, reason: "amount_in_transaction_region" });
+  }
+  return suspected;
+}
+
 /**
  * Reconstructs a full page: tokens → lines → tables → candidate rows,
  * tracking unmatched tokens and lines at each stage.
@@ -544,6 +626,13 @@ export function reconstructPage(
   const { lines, unmatchedTokenIds } = reconstructLines(page, config);
   const tables = detectTables(page, lines, config);
   const { candidates, unmatchedLineIds } = detectCandidateRows(page, lines, tables, config);
+  const suspectedUnmatchedLines = findSuspectedUnmatchedLines(
+    page,
+    lines,
+    unmatchedLineIds,
+    tables,
+    config,
+  );
 
   const pageDiagnostics: string[] = [];
   if (page.tokens.length === 0) {
@@ -554,6 +643,11 @@ export function reconstructPage(
   }
   if (unmatchedLineIds.length > 0) {
     pageDiagnostics.push(`${unmatchedLineIds.length} unmatched lines`);
+  }
+  if (suspectedUnmatchedLines.length > 0) {
+    pageDiagnostics.push(
+      `${suspectedUnmatchedLines.length} suspected transaction lines need review`,
+    );
   }
   if (candidates.length === 0 && lines.length > 0) {
     pageDiagnostics.push("no candidate rows detected");
@@ -569,6 +663,18 @@ export function reconstructPage(
     candidates,
     unmatchedTokenIds,
     unmatchedLineIds,
+    suspectedUnmatchedLines,
+    coverage: {
+      tokensAssignedToLines: {
+        assigned: page.tokens.length - unmatchedTokenIds.length,
+        extracted: page.tokens.length,
+      },
+      transactionCandidates: {
+        detected: candidates.length,
+        suspected: candidates.length + suspectedUnmatchedLines.length,
+      },
+      verifiedTransactions: null,
+    },
     diagnostics: pageDiagnostics,
   };
 }
@@ -590,6 +696,7 @@ export function reconstructDocument(
     0,
   );
   const totalUnmatchedLines = pages.reduce<number>((sum, p) => sum + p.unmatchedLineIds.length, 0);
+  const totalSuspected = pages.reduce((sum, page) => sum + page.suspectedUnmatchedLines.length, 0);
 
   return {
     pageCount: result.pageCount,
@@ -600,6 +707,17 @@ export function reconstructDocument(
     totalUnmatchedTokens,
     totalUnmatchedLines,
     hasUnmatchedContent: totalUnmatchedTokens > 0 || totalUnmatchedLines > 0,
+    coverage: {
+      tokensAssignedToLines: {
+        assigned: result.totalTokens - totalUnmatchedTokens,
+        extracted: result.totalTokens,
+      },
+      transactionCandidates: {
+        detected: totalCandidates,
+        suspected: totalCandidates + totalSuspected,
+      },
+      verifiedTransactions: null,
+    },
   };
 }
 
