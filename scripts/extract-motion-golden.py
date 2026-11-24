@@ -100,13 +100,15 @@ def main() -> None:
             # an original-currency note is printed beneath a transaction.
             y0 = max(0.0, (baseline - 15) / 792)
             y1 = min(1.0, (baseline + 10) / 792)
+            printed_amount_minor = amount_minor(amount)
             transaction = {
                 "sourceRowId": f"motion-p{page_number:02d}-r{row_index:02d}",
                 "transactionDate": iso_date(date),
                 "postingDate": iso_date(posted),
                 "rawDescription": description,
                 "transactionType": transaction_type(description),
-                "billedAmount": {"amountMinor": amount_minor(amount), "currency": "CAD", "exponent": 2},
+                "printedAmountMinor": printed_amount_minor,
+                "billedAmount": {"amountMinor": str(abs(int(printed_amount_minor))), "currency": "CAD", "exponent": 2},
                 "sourceAnchor": {"page": page_number, "bbox": [round(43 / 612, 4), round(y0, 4), round(569 / 612, 4), round(y1, 4)]},
             }
             if original_note:
@@ -123,12 +125,12 @@ def main() -> None:
     if len(transactions) != 60:
         raise SystemExit(f"Expected 60 source rows, found {len(transactions)}")
 
-    positive_minor = sum(int(t["billedAmount"]["amountMinor"]) for t in transactions if int(t["billedAmount"]["amountMinor"]) > 0)
-    negative_minor = sum(int(t["billedAmount"]["amountMinor"]) for t in transactions if int(t["billedAmount"]["amountMinor"]) < 0)
+    positive_minor = sum(int(t["printedAmountMinor"]) for t in transactions if int(t["printedAmountMinor"]) > 0)
+    negative_minor = sum(int(t["printedAmountMinor"]) for t in transactions if int(t["printedAmountMinor"]) < 0)
     if positive_minor != 194713 or negative_minor != -103879:
         raise SystemExit(f"Printed row totals disagree with summary controls: positive={positive_minor}, negative={negative_minor}")
     totals_by_type = {
-        kind: sum(int(t["billedAmount"]["amountMinor"]) for t in transactions if t["transactionType"] == kind)
+        kind: sum(int(t["printedAmountMinor"]) for t in transactions if t["transactionType"] == kind)
         for kind in {t["transactionType"] for t in transactions}
     }
     expected_type_totals = {"purchase": 194395, "fee": 318, "payment": -100000, "refund": -3379, "adjustment": -500}

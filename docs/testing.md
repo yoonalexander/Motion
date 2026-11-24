@@ -49,8 +49,10 @@ test does not infer these settings from parser output.
 The Maple truth JSON stores amount magnitudes, while the printed PDF uses
 negative debits and positive credits; the harness keeps its verified
 `positiveAmountDirection: "credit"` and scores direction from the source type
-labels. Motion's new truth JSON retains the signed printed CAD amounts, so its
-direction score uses those signs with `positiveAmountDirection: "debit"`.
+labels. Motion's truth JSON retains each signed CAD source value as
+`printedAmountMinor` and keeps `billedAmount.amountMinor` as a nonnegative
+magnitude. The harness independently compares magnitude, printed sign, and
+validated `transaction.direction` using `positiveAmountDirection: "debit"`.
 missing/merged/duplicate/false-positive counts, field mismatch counts,
 invalid anchors, review counts, and mismatch examples. Matching is one-to-one
 within 0.015 normalized page-height units of the expected row center; this is

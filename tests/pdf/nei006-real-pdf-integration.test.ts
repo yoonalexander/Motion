@@ -32,6 +32,8 @@ interface GoldenTransaction {
   rawDescription: string;
   transactionType: string;
   billedAmount: GoldenMoney;
+  /** Signed value exactly as printed; omitted where the source has magnitude/columns only. */
+  printedAmountMinor?: string;
   originalAmount?: GoldenMoney;
   sourceAnchor: { page: number; bbox: [number, number, number, number] };
 }
@@ -84,11 +86,10 @@ type CriticalField =
   | "originalCurrency"
   | "originalExponent"
   | "amountDirection"
+  | "printedSign"
   | "sourceAnchor";
 
-type GoldenParserContext = StatementContext & {
-  positiveAmountDirection?: "debit" | "credit";
-};
+type GoldenParserContext = StatementContext;
 
 interface GoldenExample {
   sourceRowId: string;
@@ -249,14 +250,27 @@ function rowHasExactMatch(
 
   compare("transactionDate", truth.transactionDate, transaction?.transactionDate);
   compare("postingDate", truth.postingDate ?? null, transaction?.postingDate ?? null);
-  compare("amountMinor", truth.billedAmount.amountMinor, transaction?.billedAmount.amountMinor);
+  const expectedMagnitude = BigInt(truth.printedAmountMinor ?? truth.billedAmount.amountMinor);
+  compare(
+    "amountMinor",
+    (expectedMagnitude < 0n ? -expectedMagnitude : expectedMagnitude).toString(),
+    transaction?.billedAmount.amountMinor,
+  );
   compare("currency", truth.billedAmount.currency, transaction?.billedAmount.currency);
   compare("transactionType", truth.transactionType, transaction?.transactionType);
   compare(
     "amountDirection",
     expectedAmountDirection(truth, fixtureDefinition),
-    actualAmountDirection(candidate, fixtureDefinition),
+    candidate.resolution === "validated" ? candidate.transaction.direction : null,
   );
+  const expectedSign = expectedPrintedSign(truth, fixtureDefinition);
+  if (expectedSign) {
+    compare(
+      "printedSign",
+      expectedSign,
+      candidate.rawFields.amountSignNegative ? "negative" : "positive",
+    );
+  }
   const actualAnchor = transaction?.sourceAnchor
     ? JSON.stringify([
         transaction.sourceAnchor.page,
@@ -322,36 +336,26 @@ function expectedAmountDirection(
       ? "credit"
       : "debit";
   }
-  return BigInt(transaction.billedAmount.amountMinor) < 0n
+  return BigInt(transaction.printedAmountMinor ?? transaction.billedAmount.amountMinor) < 0n
     ? positiveDirection === "debit"
       ? "credit"
       : "debit"
     : positiveDirection;
 }
 
-function actualAmountDirection(
-  candidate: ParsedCandidate,
+function expectedPrintedSign(
+  transaction: GoldenTransaction,
   fixture: FixtureDefinition,
-): "debit" | "credit" | null {
-  const finalizedDirection = (
-    candidate.transaction as
-      | (typeof candidate.transaction & {
-          direction?: "debit" | "credit";
-        })
-      | undefined
-  )?.direction;
-  if (finalizedDirection) return finalizedDirection;
-
-  if (fixture.context.amountDirectionSource === "debit_credit_columns") {
-    return candidate.rawFields.amountDirection ?? null;
+): "negative" | "positive" | null {
+  if (fixture.context.amountDirectionSource === "debit_credit_columns") return null;
+  if (fixture.context.truthAmountsAreSigned && transaction.printedAmountMinor) {
+    return BigInt(transaction.printedAmountMinor) < 0n ? "negative" : "positive";
   }
   const positiveDirection = fixture.context.positiveAmountDirection;
   if (!positiveDirection) return null;
-  return candidate.rawFields.amountSignNegative
-    ? positiveDirection === "debit"
-      ? "credit"
-      : "debit"
-    : positiveDirection;
+  return expectedAmountDirection(transaction, fixture) === positiveDirection
+    ? "positive"
+    : "negative";
 }
 
 function normalizeMerchant(value: string): string {
@@ -426,6 +430,7 @@ async function buildReport(
     originalCurrency: 0,
     originalExponent: 0,
     amountDirection: 0,
+    printedSign: 0,
     sourceAnchor: 0,
   };
   const examples: GoldenExample[] = [];
@@ -480,6 +485,7 @@ async function buildReport(
         "billedExponent",
         "merchantText",
       ];
+      if (expectedPrintedSign(expected, fixture)) missingFields.push("printedSign");
       if (expected.postingDate) missingFields.push("postingDate");
       if (expected.originalAmount) {
         missingFields.push("originalAmountMinor", "originalCurrency", "originalExponent");
@@ -526,14 +532,13 @@ async function buildReport(
     (candidate) => candidate.transaction?.reviewStatus === "ready",
   ).length;
   const readyWithUnresolvedFields = candidates.filter((candidate) => {
-    if (candidate.transaction?.reviewStatus !== "ready") return false;
+    if (candidate.resolution !== "validated") return false;
     const transaction = candidate.transaction;
     return (
       !transaction.transactionDate ||
       !transaction.billedAmount.amountMinor ||
       !transaction.billedAmount.currency ||
-      transaction.transactionType === "unknown" ||
-      !actualAmountDirection(candidate, fixture) ||
+      !transaction.direction ||
       candidate.flags.some((flag) => String(flag).startsWith("ambiguous_")) ||
       (candidate.rawFields.dateLikeMatches.length > 1 && !transaction.postingDate)
     );
@@ -625,6 +630,24 @@ describe("NEI-006 real-PDF golden regression pipeline", () => {
         Array(Object.keys(report.criticalFieldMismatches).length).fill(0),
       );
     }
+  });
+
+  it("keeps real PDF rows unresolved without verified statement and direction context", async () => {
+    const fixture = FIXTURES.find((item) => item.pdfFile === "layout-a-text.pdf");
+    if (!fixture) throw new Error("Maple text fixture is missing");
+    const truth = await loadTruth(fixture.truthFile);
+    const { document } = await loadFixturePdf(fixture.pdfFile);
+    const extraction = await extractDocumentText(document);
+    const reconstruction = reconstructDocument(extraction);
+    const parsed = parseDocumentCandidates(reconstruction, {});
+
+    expect(parsed.candidates).toHaveLength(truth.transactions.length);
+    expect(parsed.candidates.every((candidate) => candidate.resolution === "unresolved")).toBe(
+      true,
+    );
+    expect(parsed.candidates.every((candidate) => candidate.status !== "successfully_parsed")).toBe(
+      true,
+    );
   });
 
   it("detects the scanned Harbour PDF as having no embedded text", async () => {

@@ -20,6 +20,7 @@
       "postingDate": "2026-10-02",
       "rawDescription": "FRESHMART SUPERMARKET #018",
       "transactionType": "purchase",
+      "printedAmountMinor": "5642",
       "billedAmount": {
         "amountMinor": "5642",
         "currency": "CAD",
@@ -36,6 +37,7 @@
       "postingDate": "2026-10-03",
       "rawDescription": "METRO TRANSIT PRESTO LOAD",
       "transactionType": "purchase",
+      "printedAmountMinor": "2500",
       "billedAmount": {
         "amountMinor": "2500",
         "currency": "CAD",
@@ -52,6 +54,7 @@
       "postingDate": "2026-10-03",
       "rawDescription": "NORTHLINE COFFEE - KING ST",
       "transactionType": "purchase",
+      "printedAmountMinor": "675",
       "billedAmount": {
         "amountMinor": "675",
         "currency": "CAD",
@@ -68,6 +71,7 @@
       "postingDate": "2026-10-04",
       "rawDescription": "STREAMBOX MONTHLY PLAN",
       "transactionType": "purchase",
+      "printedAmountMinor": "1499",
       "billedAmount": {
         "amountMinor": "1499",
         "currency": "CAD",
@@ -84,6 +88,7 @@
       "postingDate": "2026-10-05",
       "rawDescription": "NORTHLINE COFFEE - KING ST",
       "transactionType": "purchase",
+      "printedAmountMinor": "675",
       "billedAmount": {
         "amountMinor": "675",
         "currency": "CAD",
@@ -100,6 +105,7 @@
       "postingDate": "2026-10-05",
       "rawDescription": "HARBOR BOOKS & STATIONERY",
       "transactionType": "purchase",
+      "printedAmountMinor": "3128",
       "billedAmount": {
         "amountMinor": "3128",
         "currency": "CAD",
@@ -116,6 +122,7 @@
       "postingDate": "2026-10-06",
       "rawDescription": "ONLINE RETAILER MARKETPLACE",
       "transactionType": "purchase",
+      "printedAmountMinor": "8745",
       "billedAmount": {
         "amountMinor": "8745",
         "currency": "CAD",
@@ -132,6 +139,7 @@
       "postingDate": "2026-10-07",
       "rawDescription": "PARKSIDE PHARMACY",
       "transactionType": "purchase",
+      "printedAmountMinor": "1819",
       "billedAmount": {
         "amountMinor": "1819",
         "currency": "CAD",
@@ -148,6 +156,7 @@
       "postingDate": "2026-10-07",
       "rawDescription": "PIZZA & PASTA CO.",
       "transactionType": "purchase",
+      "printedAmountMinor": "2460",
       "billedAmount": {
         "amountMinor": "2460",
         "currency": "CAD",
@@ -164,6 +173,7 @@
       "postingDate": "2026-10-07",
       "rawDescription": "BAYVIEW HARDWARE STORE",
       "transactionType": "purchase",
+      "printedAmountMinor": "1295",
       "billedAmount": {
         "amountMinor": "1295",
         "currency": "CAD",
@@ -180,8 +190,9 @@
       "postingDate": "2026-10-08",
       "rawDescription": "MONTHLY CARD PAYMENT",
       "transactionType": "payment",
+      "printedAmountMinor": "-50000",
       "billedAmount": {
-        "amountMinor": "-50000",
+        "amountMinor": "50000",
         "currency": "CAD",
         "exponent": 2
       },
@@ -196,6 +207,7 @@
       "postingDate": "2026-10-09",
       "rawDescription": "SUNSET FITNESS CLUB",
       "transactionType": "purchase",
+      "printedAmountMinor": "3999",
       "billedAmount": {
         "amountMinor": "3999",
         "currency": "CAD",
@@ -212,6 +224,7 @@
       "postingDate": "2026-10-09",
       "rawDescription": "GREENLEAF GROCERIES",
       "transactionType": "purchase",
+      "printedAmountMinor": "4413",
       "billedAmount": {
         "amountMinor": "4413",
         "currency": "CAD",
@@ -228,6 +241,7 @@
       "postingDate": "2026-10-10",
       "rawDescription": "SQ *EAST SIDE MARKET",
       "transactionType": "purchase",
+      "printedAmountMinor": "1570",
       "billedAmount": {
         "amountMinor": "1570",
         "currency": "CAD",
@@ -244,6 +258,7 @@
       "postingDate": "2026-10-10",
       "rawDescription": "PET SUPPLY DEPOT",
       "transactionType": "purchase",
+      "printedAmountMinor": "2940",
       "billedAmount": {
         "amountMinor": "2940",
         "currency": "CAD",
@@ -260,6 +275,7 @@
       "postingDate": "2026-10-11",
       "rawDescription": "BUS TICKET - CITY TRANSIT",
       "transactionType": "purchase",
+      "printedAmountMinor": "335",
       "billedAmount": {
         "amountMinor": "335",
         "currency": "CAD",
@@ -276,6 +292,7 @@
       "postingDate": "2026-10-11",
       "rawDescription": "MONTHLY CLOUD STORAGE",
       "transactionType": "purchase",
+      "printedAmountMinor": "299",
       "billedAmount": {
         "amountMinor": "299",
         "currency": "CAD",
@@ -292,6 +309,7 @@
       "postingDate": "2026-10-12",
       "rawDescription": "NORTHLINE COFFEE - KING ST",
       "transactionType": "purchase",
+      "printedAmountMinor": "675",
       "billedAmount": {
         "amountMinor": "675",
         "currency": "CAD",
@@ -308,6 +326,7 @@
       "postingDate": "2026-10-12",
       "rawDescription": "URBAN OUTLET - MISSISSAUGA",
       "transactionType": "purchase",
+      "printedAmountMinor": "7285",
       "billedAmount": {
         "amountMinor": "7285",
         "currency": "CAD",
@@ -324,6 +343,7 @@
       "postingDate": "2026-10-13",
       "rawDescription": "FRESHMART SUPERMARKET #018",
       "transactionType": "purchase",
+      "printedAmountMinor": "10237",
       "billedAmount": {
         "amountMinor": "10237",
         "currency": "CAD",
@@ -340,6 +360,7 @@
       "postingDate": "2026-10-13",
       "rawDescription": "RIVERFRONT RESTAURANT",
       "transactionType": "purchase",
+      "printedAmountMinor": "4820",
       "billedAmount": {
         "amountMinor": "4820",
         "currency": "CAD",
@@ -356,6 +377,7 @@
       "postingDate": "2026-10-14",
       "rawDescription": "OVERSEAS DIGITAL SERVICE",
       "transactionType": "purchase",
+      "printedAmountMinor": "2164",
       "billedAmount": {
         "amountMinor": "2164",
         "currency": "CAD",
@@ -377,6 +399,7 @@
       "postingDate": "2026-10-14",
       "rawDescription": "GAS STATION #0321",
       "transactionType": "purchase",
+      "printedAmountMinor": "5801",
       "billedAmount": {
         "amountMinor": "5801",
         "currency": "CAD",
@@ -393,8 +416,9 @@
       "postingDate": "2026-10-15",
       "rawDescription": "ONLINE RETAILER RETURN",
       "transactionType": "refund",
+      "printedAmountMinor": "-1830",
       "billedAmount": {
-        "amountMinor": "-1830",
+        "amountMinor": "1830",
         "currency": "CAD",
         "exponent": 2
       },
@@ -409,6 +433,7 @@
       "postingDate": "2026-10-15",
       "rawDescription": "VOLT ELECTRONICS",
       "transactionType": "purchase",
+      "printedAmountMinor": "19995",
       "billedAmount": {
         "amountMinor": "19995",
         "currency": "CAD",
@@ -425,6 +450,7 @@
       "postingDate": "2026-10-16",
       "rawDescription": "PARKING APP ZONE 17",
       "transactionType": "purchase",
+      "printedAmountMinor": "550",
       "billedAmount": {
         "amountMinor": "550",
         "currency": "CAD",
@@ -441,6 +467,7 @@
       "postingDate": "2026-10-16",
       "rawDescription": "GARDEN SUPPLY CENTER",
       "transactionType": "purchase",
+      "printedAmountMinor": "2618",
       "billedAmount": {
         "amountMinor": "2618",
         "currency": "CAD",
@@ -457,8 +484,9 @@
       "postingDate": "2026-10-17",
       "rawDescription": "MONTHLY CARD PAYMENT",
       "transactionType": "payment",
+      "printedAmountMinor": "-30000",
       "billedAmount": {
-        "amountMinor": "-30000",
+        "amountMinor": "30000",
         "currency": "CAD",
         "exponent": 2
       },
@@ -473,6 +501,7 @@
       "postingDate": "2026-10-17",
       "rawDescription": "MUSEUM ADMISSION TICKET",
       "transactionType": "purchase",
+      "printedAmountMinor": "1750",
       "billedAmount": {
         "amountMinor": "1750",
         "currency": "CAD",
@@ -489,6 +518,7 @@
       "postingDate": "2026-10-18",
       "rawDescription": "NORTHLINE COFFEE - KING ST",
       "transactionType": "purchase",
+      "printedAmountMinor": "675",
       "billedAmount": {
         "amountMinor": "675",
         "currency": "CAD",
@@ -505,6 +535,7 @@
       "postingDate": "2026-10-18",
       "rawDescription": "BAKER STREET BAKERY",
       "transactionType": "purchase",
+      "printedAmountMinor": "1230",
       "billedAmount": {
         "amountMinor": "1230",
         "currency": "CAD",
@@ -521,6 +552,7 @@
       "postingDate": "2026-10-19",
       "rawDescription": "FRESHMART SUPERMARKET #018",
       "transactionType": "purchase",
+      "printedAmountMinor": "6712",
       "billedAmount": {
         "amountMinor": "6712",
         "currency": "CAD",
@@ -537,6 +569,7 @@
       "postingDate": "2026-10-19",
       "rawDescription": "MOVIE HOUSE CINEMA",
       "transactionType": "purchase",
+      "printedAmountMinor": "3200",
       "billedAmount": {
         "amountMinor": "3200",
         "currency": "CAD",
@@ -553,6 +586,7 @@
       "postingDate": "2026-10-20",
       "rawDescription": "APP STORE - MUSIC SUBSCRIPTION",
       "transactionType": "purchase",
+      "printedAmountMinor": "1199",
       "billedAmount": {
         "amountMinor": "1199",
         "currency": "CAD",
@@ -569,6 +603,7 @@
       "postingDate": "2026-10-20",
       "rawDescription": "CAFE AT UNION TERMINAL",
       "transactionType": "purchase",
+      "printedAmountMinor": "945",
       "billedAmount": {
         "amountMinor": "945",
         "currency": "CAD",
@@ -585,6 +620,7 @@
       "postingDate": "2026-10-21",
       "rawDescription": "ONLINE GAME STORE",
       "transactionType": "purchase",
+      "printedAmountMinor": "2850",
       "billedAmount": {
         "amountMinor": "2850",
         "currency": "CAD",
@@ -601,6 +637,7 @@
       "postingDate": "2026-10-21",
       "rawDescription": "COASTAL HOTEL RESERVATION",
       "transactionType": "purchase",
+      "printedAmountMinor": "15874",
       "billedAmount": {
         "amountMinor": "15874",
         "currency": "CAD",
@@ -622,6 +659,7 @@
       "postingDate": "2026-10-22",
       "rawDescription": "FOREIGN TRANSACTION FEE",
       "transactionType": "fee",
+      "printedAmountMinor": "318",
       "billedAmount": {
         "amountMinor": "318",
         "currency": "CAD",
@@ -638,8 +676,9 @@
       "postingDate": "2026-10-22",
       "rawDescription": "RESTAURANT AUTHORIZED CREDIT",
       "transactionType": "refund",
+      "printedAmountMinor": "-1250",
       "billedAmount": {
-        "amountMinor": "-1250",
+        "amountMinor": "1250",
         "currency": "CAD",
         "exponent": 2
       },
@@ -654,6 +693,7 @@
       "postingDate": "2026-10-23",
       "rawDescription": "EASTWOOD DENTAL CLINIC",
       "transactionType": "purchase",
+      "printedAmountMinor": "8500",
       "billedAmount": {
         "amountMinor": "8500",
         "currency": "CAD",
@@ -670,6 +710,7 @@
       "postingDate": "2026-10-23",
       "rawDescription": "WATERFRONT BIKE SHOP",
       "transactionType": "purchase",
+      "printedAmountMinor": "4999",
       "billedAmount": {
         "amountMinor": "4999",
         "currency": "CAD",
@@ -686,6 +727,7 @@
       "postingDate": "2026-10-24",
       "rawDescription": "FRESHMART SUPERMARKET #018",
       "transactionType": "purchase",
+      "printedAmountMinor": "3966",
       "billedAmount": {
         "amountMinor": "3966",
         "currency": "CAD",
@@ -702,8 +744,9 @@
       "postingDate": "2026-10-24",
       "rawDescription": "PAYMENT RECEIVED - THANK YOU",
       "transactionType": "payment",
+      "printedAmountMinor": "-20000",
       "billedAmount": {
-        "amountMinor": "-20000",
+        "amountMinor": "20000",
         "currency": "CAD",
         "exponent": 2
       },
@@ -718,6 +761,7 @@
       "postingDate": "2026-10-25",
       "rawDescription": "LONDON BOOK CLUB ONLINE",
       "transactionType": "purchase",
+      "printedAmountMinor": "1988",
       "billedAmount": {
         "amountMinor": "1988",
         "currency": "CAD",
@@ -739,6 +783,7 @@
       "postingDate": "2026-10-25",
       "rawDescription": "CLOTHING OUTLET STORE",
       "transactionType": "purchase",
+      "printedAmountMinor": "4692",
       "billedAmount": {
         "amountMinor": "4692",
         "currency": "CAD",
@@ -755,6 +800,7 @@
       "postingDate": "2026-10-26",
       "rawDescription": "NORTHLINE COFFEE - KING ST",
       "transactionType": "purchase",
+      "printedAmountMinor": "675",
       "billedAmount": {
         "amountMinor": "675",
         "currency": "CAD",
@@ -771,6 +817,7 @@
       "postingDate": "2026-10-26",
       "rawDescription": "HOME UTILITY SUPPLIES",
       "transactionType": "purchase",
+      "printedAmountMinor": "5420",
       "billedAmount": {
         "amountMinor": "5420",
         "currency": "CAD",
@@ -787,6 +834,7 @@
       "postingDate": "2026-10-27",
       "rawDescription": "DELIVERY FOOD SERVICES",
       "transactionType": "purchase",
+      "printedAmountMinor": "2718",
       "billedAmount": {
         "amountMinor": "2718",
         "currency": "CAD",
@@ -803,6 +851,7 @@
       "postingDate": "2026-10-27",
       "rawDescription": "AIRPORT EXPRESS SHUTTLE",
       "transactionType": "purchase",
+      "printedAmountMinor": "2400",
       "billedAmount": {
         "amountMinor": "2400",
         "currency": "CAD",
@@ -819,6 +868,7 @@
       "postingDate": "2026-10-28",
       "rawDescription": "LATE NIGHT DINER",
       "transactionType": "purchase",
+      "printedAmountMinor": "1855",
       "billedAmount": {
         "amountMinor": "1855",
         "currency": "CAD",
@@ -835,6 +885,7 @@
       "postingDate": "2026-10-28",
       "rawDescription": "FRESHMART SUPERMARKET #018",
       "transactionType": "purchase",
+      "printedAmountMinor": "7731",
       "billedAmount": {
         "amountMinor": "7731",
         "currency": "CAD",
@@ -851,6 +902,7 @@
       "postingDate": "2026-10-29",
       "rawDescription": "CORNER CONVENIENCE SHOP",
       "transactionType": "purchase",
+      "printedAmountMinor": "845",
       "billedAmount": {
         "amountMinor": "845",
         "currency": "CAD",
@@ -867,8 +919,9 @@
       "postingDate": "2026-10-29",
       "rawDescription": "APP REFUND - CLOUD STORAGE",
       "transactionType": "refund",
+      "printedAmountMinor": "-299",
       "billedAmount": {
-        "amountMinor": "-299",
+        "amountMinor": "299",
         "currency": "CAD",
         "exponent": 2
       },
@@ -883,6 +936,7 @@
       "postingDate": "2026-10-30",
       "rawDescription": "CAMPUS PRINTING SERVICES",
       "transactionType": "purchase",
+      "printedAmountMinor": "1320",
       "billedAmount": {
         "amountMinor": "1320",
         "currency": "CAD",
@@ -899,6 +953,7 @@
       "postingDate": "2026-10-30",
       "rawDescription": "FUEL STATION #0782",
       "transactionType": "purchase",
+      "printedAmountMinor": "4275",
       "billedAmount": {
         "amountMinor": "4275",
         "currency": "CAD",
@@ -915,6 +970,7 @@
       "postingDate": "2026-10-31",
       "rawDescription": "NORTHLINE COFFEE - KING ST",
       "transactionType": "purchase",
+      "printedAmountMinor": "675",
       "billedAmount": {
         "amountMinor": "675",
         "currency": "CAD",
@@ -931,6 +987,7 @@
       "postingDate": "2026-10-31",
       "rawDescription": "REC CENTER DROP-IN",
       "transactionType": "purchase",
+      "printedAmountMinor": "1400",
       "billedAmount": {
         "amountMinor": "1400",
         "currency": "CAD",
@@ -947,8 +1004,9 @@
       "postingDate": "2026-10-31",
       "rawDescription": "BANK SERVICE ADJUSTMENT",
       "transactionType": "adjustment",
+      "printedAmountMinor": "-500",
       "billedAmount": {
-        "amountMinor": "-500",
+        "amountMinor": "500",
         "currency": "CAD",
         "exponent": 2
       },
@@ -963,6 +1021,7 @@
       "postingDate": "2026-10-31",
       "rawDescription": "FRESHMART SUPERMARKET #018",
       "transactionType": "purchase",
+      "printedAmountMinor": "8162",
       "billedAmount": {
         "amountMinor": "8162",
         "currency": "CAD",
@@ -979,6 +1038,7 @@
       "postingDate": "2026-10-31",
       "rawDescription": "LOCAL COMMUNITY THEATER",
       "transactionType": "purchase",
+      "printedAmountMinor": "2200",
       "billedAmount": {
         "amountMinor": "2200",
         "currency": "CAD",
