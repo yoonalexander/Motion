@@ -1,265 +1,666 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import * as pdfjsLib from "pdfjs-dist";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import {
   extractDocumentText,
+  parseDocumentCandidates,
   reconstructDocument,
+  type ParsedCandidate,
   type ReconstructionResult,
+  type StatementContext,
 } from "@/lib/pdf";
 
-// Ensure PDF.js uses the local worker file so it works in jsdom with
-// useWorker: false. The worker file is copied to public/pdf.worker.mjs.
-pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
-  path.resolve("public/pdf.worker.mjs")
-).href;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(path.resolve("public/pdf.worker.mjs")).href;
 
-// ---------------------------------------------------------------------------
-// Real PDF fixture integration tests (Step 1: NEI-006 verification)
-// ---------------------------------------------------------------------------
+const fixtureDir = path.resolve("tests/fixtures");
+const MAX_ANCHOR_CENTER_DELTA = 0.015;
 
-const fixtureDir = path.resolve("tests/fixtures/synthetic");
-
-interface FixtureCase {
-  name: string;
-  pdfFile: string;
-  truthFile: string | null;
-  expectedTransactionCount: number;
+interface GoldenMoney {
+  amountMinor: string;
+  currency: string;
+  exponent: number;
 }
 
-const FIXTURES: FixtureCase[] = [
+interface GoldenTransaction {
+  sourceRowId: string;
+  transactionDate: string;
+  postingDate?: string;
+  rawDescription: string;
+  transactionType: string;
+  billedAmount: GoldenMoney;
+  /** Signed value exactly as printed; omitted where the source has magnitude/columns only. */
+  printedAmountMinor?: string;
+  originalAmount?: GoldenMoney;
+  sourceAnchor: { page: number; bbox: [number, number, number, number] };
+}
+
+interface GoldenFixture {
+  schemaVersion: number;
+  id: string;
+  description: string;
+  kind: "text" | "scanned";
+  sourceFile: string;
+  bankName: string;
+  accountLabel: string;
+  periodStart: string;
+  periodEnd: string;
+  periodVerified: boolean;
+  dateOrder?: "MDY" | "DMY";
+  positiveAmountDirection?: "debit" | "credit";
+  amountDirectionSource?: "debit_credit_columns";
+  currency: string;
+  pageCount: number;
+  transactions: GoldenTransaction[];
+  controls: { transactionCount: number };
+  sourceSha256?: string;
+  provenance?: string;
+}
+
+interface FixtureDefinition {
+  name: string;
+  pdfFile: string;
+  truthFile: string;
+  expectedKind: "text" | "scanned";
+  context: {
+    periodVerified: true;
+    dateOrder: "MDY" | "DMY";
+    positiveAmountDirection?: "debit" | "credit";
+    amountDirectionSource: "signed_amount_column" | "debit_credit_columns";
+    truthAmountsAreSigned: boolean;
+  };
+}
+
+type CriticalField =
+  | "transactionDate"
+  | "postingDate"
+  | "amountMinor"
+  | "currency"
+  | "transactionType"
+  | "billedExponent"
+  | "merchantText"
+  | "originalAmountMinor"
+  | "originalCurrency"
+  | "originalExponent"
+  | "amountDirection"
+  | "printedSign"
+  | "sourceAnchor";
+
+type GoldenParserContext = StatementContext;
+
+interface GoldenExample {
+  sourceRowId: string;
+  page: number;
+  field: CriticalField | "row";
+  source: string;
+  parsed: string | null;
+}
+
+interface GoldenReport {
+  fixture: string;
+  sourceSha256: string;
+  pages: number;
+  stageCounts: {
+    pdfJsTokens: number;
+    reconstructedLines: number;
+    reconstructedCandidates: number;
+    parsedCandidates: number;
+    parsedTransactions: number;
+    readyTransactions: number;
+    reviewRequired: number;
+    readyWithUnresolvedFields: number;
+  };
+  groundTruthRows: number;
+  anchorAlignedRows: number;
+  anchorAlignmentRate: number;
+  fullyCorrectMatchedRows: number;
+  fullyCorrectMatchedRate: number;
+  missingRows: number;
+  mergedRows: number;
+  duplicateCandidates: number;
+  falsePositiveCandidates: number;
+  invalidSourceAnchors: number;
+  criticalFieldMismatches: Record<CriticalField, number>;
+  examples: GoldenExample[];
+}
+
+const FIXTURES: FixtureDefinition[] = [
   {
-    name: "layout-a-text (Maple Card - single-date, signed amounts)",
+    name: "Maple signed-amount text layout",
     pdfFile: "layout-a-text.pdf",
-    truthFile: "layout-a-text.json",
-    expectedTransactionCount: 12,
+    truthFile: "synthetic/layout-a-text.json",
+    expectedKind: "text",
+    context: {
+      periodVerified: true,
+      dateOrder: "MDY",
+      positiveAmountDirection: "credit",
+      amountDirectionSource: "signed_amount_column",
+      truthAmountsAreSigned: false,
+    },
   },
   {
-    name: "layout-b-text (Cedar Bank - two-date, debit/credit columns)",
+    name: "Cedar two-date debit-credit text layout",
     pdfFile: "layout-b-text.pdf",
-    truthFile: "layout-b-text.json",
-    expectedTransactionCount: 12,
+    truthFile: "synthetic/layout-b-text.json",
+    expectedKind: "text",
+    context: {
+      periodVerified: true,
+      dateOrder: "DMY",
+      amountDirectionSource: "debit_credit_columns",
+      truthAmountsAreSigned: false,
+    },
   },
   {
-    name: "Motion_Synthetic_Credit_Card_Statement",
+    name: "Motion four-page CAD text statement",
     pdfFile: "motion-synthetic-credit-card-statement.pdf",
-    truthFile: null,
-    expectedTransactionCount: 0,
+    truthFile: "golden/motion-synthetic-credit-card-statement.json",
+    expectedKind: "text",
+    context: {
+      periodVerified: true,
+      dateOrder: "MDY",
+      positiveAmountDirection: "debit",
+      amountDirectionSource: "signed_amount_column",
+      truthAmountsAreSigned: true,
+    },
+  },
+  {
+    name: "Harbour scanned no-text layout",
+    pdfFile: "layout-c-scanned.pdf",
+    truthFile: "synthetic/layout-c-scanned.json",
+    expectedKind: "scanned",
+    context: {
+      periodVerified: true,
+      dateOrder: "MDY",
+      positiveAmountDirection: "debit",
+      amountDirectionSource: "signed_amount_column",
+      truthAmountsAreSigned: true,
+    },
   },
 ];
 
-function loadFixturePdf(pdfFile: string): Promise<PDFDocumentProxy> {
-  return new Promise((resolve, reject) => {
-    const filePath = path.join(fixtureDir, pdfFile);
-    const bytes = readFile(filePath);
-    bytes
-      .then((buf) => {
-        const uint8Array = new Uint8Array(
-          buf.buffer,
-          buf.byteOffset,
-          buf.byteLength
-        );
-        return pdfjsLib.getDocument({
-          data: uint8Array,
-          useWorker: false,
-        } as unknown as Parameters<typeof pdfjsLib.getDocument>[0]);
-      })
-      .then((loadingTask) => loadingTask.promise)
-      .then(resolve)
-      .catch(reject);
-  });
+const openDocuments: PDFDocumentProxy[] = [];
+
+async function loadFixturePdf(pdfFile: string): Promise<{
+  document: PDFDocumentProxy;
+  bytes: Uint8Array;
+}> {
+  const buffer = await readFile(path.join(fixtureDir, "synthetic", pdfFile));
+  const bytes = new Uint8Array(buffer);
+  const task = pdfjsLib.getDocument({
+    data: bytes.slice(),
+    useWorker: false,
+  } as unknown as Parameters<typeof pdfjsLib.getDocument>[0]);
+  const document = await task.promise;
+  openDocuments.push(document);
+  return { document, bytes };
 }
 
-describe("NEI-006 real PDF fixture verification (Step 1)", () => {
+async function loadTruth(truthFile: string): Promise<GoldenFixture> {
+  const json = await readFile(path.join(fixtureDir, truthFile), "utf8");
+  return JSON.parse(json) as GoldenFixture;
+}
 
-  for (const fixture of FIXTURES) {
-    if (!fixture.truthFile) continue; // skip fixtures without ground truth
-    const truthFile = fixture.truthFile;
+function centerY(bbox: [number, number, number, number]): number {
+  return (bbox[1] + bbox[3]) / 2;
+}
 
-    describe(fixture.name, () => {
-      let document: PDFDocumentProxy;
-      let truth: any;
+function validAnchor(candidate: ParsedCandidate, pageCount: number): boolean {
+  const [x0, y0, x1, y1] = candidate.bbox;
+  return (
+    Number.isInteger(candidate.page) &&
+    candidate.page >= 1 &&
+    candidate.page <= pageCount &&
+    [x0, y0, x1, y1].every(Number.isFinite) &&
+    x0 >= 0 &&
+    y0 >= 0 &&
+    x1 <= 1 &&
+    y1 <= 1 &&
+    x0 < x1 &&
+    y0 < y1
+  );
+}
 
-      beforeAll(async () => {
-        document = await loadFixturePdf(fixture.pdfFile);
-        const truthBytes = await readFile(
-          path.join(fixtureDir, truthFile),
-          "utf8"
-        );
-        truth = JSON.parse(truthBytes);
+function rowHasExactMatch(
+  truth: GoldenTransaction,
+  candidate: ParsedCandidate,
+  fixtureDefinition: FixtureDefinition,
+): { exact: boolean; mismatches: CriticalField[]; examples: GoldenExample[] } {
+  const transaction = candidate.transaction;
+  const mismatches: CriticalField[] = [];
+  const examples: GoldenExample[] = [];
+  const compare = (
+    field: CriticalField,
+    expected: string | null,
+    actual: string | null | undefined,
+  ) => {
+    if (actual !== expected) {
+      mismatches.push(field);
+      examples.push({
+        sourceRowId: truth.sourceRowId,
+        page: truth.sourceAnchor.page,
+        field,
+        source: expected ?? "<none>",
+        parsed: actual ?? null,
       });
+    }
+  };
 
-      afterAll(async () => {
-        if (document) {
-          document.destroy();
-        }
-      });
+  compare("transactionDate", truth.transactionDate, transaction?.transactionDate);
+  compare("postingDate", truth.postingDate ?? null, transaction?.postingDate ?? null);
+  const expectedMagnitude = BigInt(truth.printedAmountMinor ?? truth.billedAmount.amountMinor);
+  compare(
+    "amountMinor",
+    (expectedMagnitude < 0n ? -expectedMagnitude : expectedMagnitude).toString(),
+    transaction?.billedAmount.amountMinor,
+  );
+  compare("currency", truth.billedAmount.currency, transaction?.billedAmount.currency);
+  compare("transactionType", truth.transactionType, transaction?.transactionType);
+  compare(
+    "amountDirection",
+    expectedAmountDirection(truth, fixtureDefinition),
+    candidate.resolution === "validated" ? candidate.transaction.direction : null,
+  );
+  const expectedSign = expectedPrintedSign(truth, fixtureDefinition);
+  if (expectedSign) {
+    compare(
+      "printedSign",
+      expectedSign,
+      candidate.rawFields.amountSignNegative ? "negative" : "positive",
+    );
+  }
+  const actualAnchor = transaction?.sourceAnchor
+    ? JSON.stringify([
+        transaction.sourceAnchor.page,
+        transaction.sourceAnchor.bbox,
+        transaction.sourceAnchor.tokenIds ?? [],
+      ])
+    : null;
+  const normalizedExpectedAnchor = JSON.stringify([
+    candidate.page,
+    candidate.bbox,
+    candidate.tokenIds,
+  ]);
+  compare("sourceAnchor", normalizedExpectedAnchor, actualAnchor);
+  compare(
+    "billedExponent",
+    String(truth.billedAmount.exponent),
+    transaction?.billedAmount.exponent === undefined
+      ? undefined
+      : String(transaction.billedAmount.exponent),
+  );
+  compare(
+    "merchantText",
+    normalizeMerchant(truth.rawDescription),
+    transaction?.rawDescription ? normalizeMerchant(transaction.rawDescription) : undefined,
+  );
+  if (truth.originalAmount) {
+    compare(
+      "originalAmountMinor",
+      truth.originalAmount.amountMinor,
+      transaction?.originalAmount?.amountMinor,
+    );
+    compare(
+      "originalCurrency",
+      truth.originalAmount.currency,
+      transaction?.originalAmount?.currency,
+    );
+    compare(
+      "originalExponent",
+      String(truth.originalAmount.exponent),
+      transaction?.originalAmount?.exponent === undefined
+        ? undefined
+        : String(transaction.originalAmount.exponent),
+    );
+  }
+  return { exact: mismatches.length === 0, mismatches, examples };
+}
 
-      it("loads the actual PDF using PDF.js", () => {
-        expect(document?.numPages).toBeGreaterThan(0);
-        expect(document?.numPages).toBe(truth.pageCount);
-      });
+function expectedAmountDirection(
+  transaction: GoldenTransaction,
+  fixtureDefinition: FixtureDefinition,
+): "debit" | "credit" {
+  if (fixtureDefinition.context.amountDirectionSource === "debit_credit_columns") {
+    return ["refund", "payment", "deposit"].includes(transaction.transactionType)
+      ? "credit"
+      : "debit";
+  }
+  const positiveDirection = fixtureDefinition.context.positiveAmountDirection;
+  if (!positiveDirection) {
+    throw new Error(`${transaction.sourceRowId} is missing its printed sign convention`);
+  }
+  if (!fixtureDefinition.context.truthAmountsAreSigned) {
+    return ["refund", "payment", "deposit"].includes(transaction.transactionType)
+      ? "credit"
+      : "debit";
+  }
+  return BigInt(transaction.printedAmountMinor ?? transaction.billedAmount.amountMinor) < 0n
+    ? positiveDirection === "debit"
+      ? "credit"
+      : "debit"
+    : positiveDirection;
+}
 
-      it("extracts text tokens from every page", async () => {
-        if (!document) throw new Error("document not loaded");
-        const extraction = await extractDocumentText(document);
-        expect(extraction.pageCount).toBe(truth.pageCount);
-        expect(extraction.hasExtractableText).toBe(true);
-        expect(extraction.totalTokens).toBeGreaterThan(0);
-        expect(extraction.pages).toHaveLength(truth.pageCount);
-      });
+function expectedPrintedSign(
+  transaction: GoldenTransaction,
+  fixture: FixtureDefinition,
+): "negative" | "positive" | null {
+  if (fixture.context.amountDirectionSource === "debit_credit_columns") return null;
+  if (fixture.context.truthAmountsAreSigned && transaction.printedAmountMinor) {
+    return BigInt(transaction.printedAmountMinor) < 0n ? "negative" : "positive";
+  }
+  const positiveDirection = fixture.context.positiveAmountDirection;
+  if (!positiveDirection) return null;
+  return expectedAmountDirection(transaction, fixture) === positiveDirection
+    ? "positive"
+    : "negative";
+}
 
-      it("reconstructs lines, tables, and candidate rows", async () => {
-        if (!document) throw new Error("document not loaded");
-        const extraction = await extractDocumentText(document);
-        const reconstructed: ReconstructionResult = reconstructDocument(
-          extraction
-        );
+function normalizeMerchant(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
 
-        expect(reconstructed.pageCount).toBe(truth.pageCount);
-        expect(reconstructed.totalLines).toBeGreaterThan(0);
-        expect(reconstructed.totalCandidates).toBeGreaterThan(0);
-
-        for (const page of reconstructed.pages) {
-          expect(page.page).toBeGreaterThan(0);
-          expect(page.page).toBeLessThanOrEqual(truth.pageCount);
-          for (const line of page.lines) {
-            expect(line.tokenCount).toBeGreaterThan(0);
-            expect(line.bbox[0]).toBeGreaterThanOrEqual(0);
-            expect(line.bbox[1]).toBeGreaterThanOrEqual(0);
-            expect(line.bbox[2]).toBeLessThanOrEqual(1);
-            expect(line.bbox[3]).toBeLessThanOrEqual(1);
-          }
-          for (const candidate of page.candidates) {
-            expect(candidate.str.trim().length).toBeGreaterThan(0);
-            expect(candidate.tokenIds.length).toBeGreaterThan(0);
-            expect(candidate.bbox[0]).toBeLessThan(candidate.bbox[2]);
-            expect(candidate.bbox[1]).toBeLessThan(candidate.bbox[3]);
-          }
-        }
-      });
-
-      it("finds candidate rows matching ground truth transaction count", async () => {
-        if (!document) throw new Error("document not loaded");
-        const extraction = await extractDocumentText(document);
-        const reconstructed: ReconstructionResult = reconstructDocument(
-          extraction
-        );
-
-        const allCandidates = reconstructed.pages.flatMap((p) => p.candidates);
-        // We expect at least as many candidates as ground truth transactions
-        // (candidates may include headers/totals that need filtering)
-        expect(allCandidates.length).toBeGreaterThanOrEqual(
-          Math.floor(truth.controls.transactionCount * 0.5)
-        );
-      });
-
-      it("candidate source anchors fall within expected bbox ranges", async () => {
-        if (!document) throw new Error("document not loaded");
-        const extraction = await extractDocumentText(document);
-        const reconstructed: ReconstructionResult = reconstructDocument(
-          extraction
-        );
-
-        const allCandidates = reconstructed.pages.flatMap((p) => p.candidates);
-        const groundTruthBboxes = truth.transactions.map(
-          (t: any) => t.sourceAnchor.bbox
-        );
-
-        // Each ground truth transaction anchor should be near at least one candidate
-        // (within normalized coordinate tolerance)
-        let matchedTruthCount = 0;
-        for (const gt of truth.transactions) {
-          const [gtX0, gtY0, gtX1, gtY1] = gt.sourceAnchor.bbox;
-          const gtCenterX = (gtX0 + gtX1) / 2;
-          const gtCenterY = (gtY0 + gtY1) / 2;
-
-          const nearestCandidate = allCandidates.reduce<{
-            candidate: any;
-            dist: number;
-          } | null>((best, c) => {
-            const [cX0, cY0, cX1, cY1] = c.bbox;
-            const cCenterX = (cX0 + cX1) / 2;
-            const cCenterY = (cY0 + cY1) / 2;
-            const dist = Math.hypot(cCenterX - gtCenterX, cCenterY - gtCenterY);
-            if (!best || dist < best.dist) {
-              return { candidate: c, dist };
-            }
-            return best;
-          }, null);
-
-          if (nearestCandidate && nearestCandidate.dist < 0.15) {
-            matchedTruthCount++;
-          }
-        }
-
-        // At least 60% of ground truth transactions should have a nearby candidate
-        const matchRate = matchedTruthCount / truth.controls.transactionCount;
-        expect(matchRate).toBeGreaterThanOrEqual(0.6);
-      });
-
-      it("preserves source anchors for all candidates", async () => {
-        if (!document) throw new Error("document not loaded");
-        const extraction = await extractDocumentText(document);
-        const reconstructed: ReconstructionResult = reconstructDocument(
-          extraction
-        );
-
-        const { rowToAnchor } = await import("@/lib/pdf");
-
-        for (const page of reconstructed.pages) {
-          for (const candidate of page.candidates) {
-            const anchor = rowToAnchor(candidate);
-            expect(anchor.page).toBe(candidate.page);
-            expect(anchor.bbox).toEqual(candidate.bbox);
-            expect(anchor.tokenIds).toEqual(candidate.tokenIds);
-          }
-        }
-      });
-
-      it("tracks unmatched content for review", async () => {
-        if (!document) throw new Error("document not loaded");
-        const extraction = await extractDocumentText(document);
-        const reconstructed: ReconstructionResult = reconstructDocument(
-          extraction
-        );
-
-        // At minimum, the structure should be present
-        for (const page of reconstructed.pages) {
-          expect(Array.isArray(page.unmatchedLineIds)).toBe(true);
-          expect(Array.isArray(page.unmatchedTokenIds)).toBe(true);
-          expect(Array.isArray(page.diagnostics)).toBe(true);
-        }
-      });
-    });
+function makeVerifiedContext(
+  fixture: FixtureDefinition,
+  truth: GoldenFixture,
+): GoldenParserContext {
+  if (fixture.context.periodVerified !== true || !fixture.context.dateOrder) {
+    throw new Error(`${fixture.name} is missing verified date context`);
+  }
+  if (
+    fixture.context.amountDirectionSource === "signed_amount_column" &&
+    !fixture.context.positiveAmountDirection
+  ) {
+    throw new Error(`${fixture.name} is missing a verified signed-amount convention`);
+  }
+  if (truth.periodStart > truth.periodEnd || !truth.currency) {
+    throw new Error(`${fixture.name} ground truth has invalid statement context`);
+  }
+  if (
+    truth.periodVerified !== undefined &&
+    truth.periodVerified !== fixture.context.periodVerified
+  ) {
+    throw new Error(`${fixture.name} context does not match its source truth`);
+  }
+  if (truth.dateOrder !== undefined && truth.dateOrder !== fixture.context.dateOrder) {
+    throw new Error(`${fixture.name} date order disagrees with its source truth`);
+  }
+  if (
+    truth.positiveAmountDirection !== undefined &&
+    truth.positiveAmountDirection !== fixture.context.positiveAmountDirection
+  ) {
+    throw new Error(`${fixture.name} signed amount convention disagrees with its source truth`);
   }
 
-  describe("scanned PDF (layout-c) is recognized as having no extractable text", () => {
-    let document: PDFDocumentProxy | null = null;
-    let truth: any;
+  const common: GoldenParserContext = {
+    periodStart: truth.periodStart,
+    periodEnd: truth.periodEnd,
+    periodVerified: fixture.context.periodVerified,
+    dateOrder: fixture.context.dateOrder,
+    currency: truth.currency,
+    bankName: truth.bankName,
+    accountLabel: truth.accountLabel,
+    positiveAmountDirection: fixture.context.positiveAmountDirection,
+  };
+  return common;
+}
 
-    beforeAll(async () => {
-      document = await loadFixturePdf("layout-c-scanned.pdf");
-      const truthBytes = await readFile(
-        path.join(fixtureDir, "layout-c-scanned.json"),
-        "utf8"
+async function buildReport(
+  fixture: FixtureDefinition,
+  truth: GoldenFixture,
+  bytes: Uint8Array,
+  reconstruction: ReconstructionResult,
+  parsed: ReturnType<typeof parseDocumentCandidates>,
+  tokenCount: number,
+): Promise<GoldenReport> {
+  const candidates = parsed.candidates;
+  const assigned = new Set<number>();
+  const alignedTruth = new Set<number>();
+  const mismatches: Record<CriticalField, number> = {
+    transactionDate: 0,
+    postingDate: 0,
+    amountMinor: 0,
+    currency: 0,
+    transactionType: 0,
+    billedExponent: 0,
+    merchantText: 0,
+    originalAmountMinor: 0,
+    originalCurrency: 0,
+    originalExponent: 0,
+    amountDirection: 0,
+    printedSign: 0,
+    sourceAnchor: 0,
+  };
+  const examples: GoldenExample[] = [];
+  let anchorAlignedRows = 0;
+  let fullyCorrectMatchedRows = 0;
+  let missingRows = 0;
+  let mergedRows = 0;
+
+  const pairs = truth.transactions
+    .flatMap((expected, truthIndex) =>
+      candidates.flatMap((candidate, candidateIndex) => {
+        if (candidate.page !== expected.sourceAnchor.page) return [];
+        return [
+          {
+            expected,
+            truthIndex,
+            candidate,
+            candidateIndex,
+            delta: Math.abs(centerY(candidate.bbox) - centerY(expected.sourceAnchor.bbox)),
+          },
+        ];
+      }),
+    )
+    .sort((a, b) => a.delta - b.delta);
+  const matchByTruth = new Map<number, (typeof pairs)[number]>();
+  for (const pair of pairs) {
+    if (pair.delta > MAX_ANCHOR_CENTER_DELTA) break;
+    if (assigned.has(pair.candidateIndex) || alignedTruth.has(pair.truthIndex)) continue;
+    assigned.add(pair.candidateIndex);
+    alignedTruth.add(pair.truthIndex);
+    matchByTruth.set(pair.truthIndex, pair);
+  }
+
+  truth.transactions.forEach((expected, truthIndex) => {
+    const match = matchByTruth.get(truthIndex);
+    if (!match) {
+      missingRows++;
+      const nearby = candidates.filter(
+        (candidate) =>
+          candidate.page === expected.sourceAnchor.page &&
+          Math.abs(centerY(candidate.bbox) - centerY(expected.sourceAnchor.bbox)) <=
+            MAX_ANCHOR_CENTER_DELTA,
       );
-      truth = JSON.parse(truthBytes);
-    });
-
-    afterAll(async () => {
-      if (document) {
-        document.destroy();
+      if (nearby.length > 0) mergedRows++;
+      const missingFields: CriticalField[] = [
+        "transactionDate",
+        "amountMinor",
+        "currency",
+        "transactionType",
+        "amountDirection",
+        "sourceAnchor",
+        "billedExponent",
+        "merchantText",
+      ];
+      if (expectedPrintedSign(expected, fixture)) missingFields.push("printedSign");
+      if (expected.postingDate) missingFields.push("postingDate");
+      if (expected.originalAmount) {
+        missingFields.push("originalAmountMinor", "originalCurrency", "originalExponent");
       }
-    });
+      for (const field of missingFields) mismatches[field]++;
+      const closest = candidates
+        .filter((candidate) => candidate.page === expected.sourceAnchor.page)
+        .map((candidate) => ({
+          candidate,
+          delta: Math.abs(centerY(candidate.bbox) - centerY(expected.sourceAnchor.bbox)),
+        }))
+        .sort((a, b) => a.delta - b.delta)[0];
+      examples.push({
+        sourceRowId: expected.sourceRowId,
+        page: expected.sourceAnchor.page,
+        field: "row",
+        source: `${expected.transactionDate} ${expected.rawDescription} ${expected.billedAmount.amountMinor}`,
+        parsed: closest ? `delta=${closest.delta.toFixed(4)}: ${closest.candidate.str}` : null,
+      });
+      return;
+    }
 
-    it("reports no extractable text for scanned page", async () => {
-      if (!document) throw new Error("document not loaded");
+    anchorAlignedRows++;
+    const result = rowHasExactMatch(expected, match.candidate, fixture);
+    if (result.exact) fullyCorrectMatchedRows++;
+    for (const field of result.mismatches) mismatches[field]++;
+    examples.push(...result.examples);
+  });
+  const duplicateCandidates = candidates.filter(
+    (candidate, index) =>
+      !assigned.has(index) &&
+      truth.transactions.some(
+        (expected) =>
+          expected.sourceAnchor.page === candidate.page &&
+          Math.abs(centerY(candidate.bbox) - centerY(expected.sourceAnchor.bbox)) <=
+            MAX_ANCHOR_CENTER_DELTA,
+      ),
+  ).length;
+  const invalidSourceAnchors = candidates.filter(
+    (candidate) => !validAnchor(candidate, truth.pageCount),
+  ).length;
+  const parsedTransactions = candidates.filter((candidate) => candidate.transaction);
+  const readyTransactions = parsedTransactions.filter(
+    (candidate) => candidate.transaction?.reviewStatus === "ready",
+  ).length;
+  const readyWithUnresolvedFields = candidates.filter((candidate) => {
+    if (candidate.resolution !== "validated") return false;
+    const transaction = candidate.transaction;
+    return (
+      !transaction.transactionDate ||
+      !transaction.billedAmount.amountMinor ||
+      !transaction.billedAmount.currency ||
+      !transaction.direction ||
+      candidate.flags.some((flag) => String(flag).startsWith("ambiguous_")) ||
+      (candidate.rawFields.dateLikeMatches.length > 1 && !transaction.postingDate)
+    );
+  }).length;
+  const digest = createHash("sha256").update(bytes).digest("hex");
+
+  return {
+    fixture: fixture.pdfFile,
+    sourceSha256: digest,
+    pages: reconstruction.pageCount,
+    stageCounts: {
+      pdfJsTokens: tokenCount,
+      reconstructedLines: reconstruction.totalLines,
+      reconstructedCandidates: reconstruction.totalCandidates,
+      parsedCandidates: candidates.length,
+      parsedTransactions: parsedTransactions.length,
+      readyTransactions,
+      reviewRequired: candidates.length - readyTransactions,
+      readyWithUnresolvedFields,
+    },
+    groundTruthRows: truth.transactions.length,
+    anchorAlignedRows,
+    anchorAlignmentRate: Number((anchorAlignedRows / truth.transactions.length).toFixed(4)),
+    fullyCorrectMatchedRows,
+    fullyCorrectMatchedRate: Number(
+      (fullyCorrectMatchedRows / truth.transactions.length).toFixed(4),
+    ),
+    missingRows,
+    mergedRows,
+    duplicateCandidates,
+    falsePositiveCandidates: candidates.length - assigned.size - duplicateCandidates,
+    invalidSourceAnchors,
+    criticalFieldMismatches: mismatches,
+    examples: examples.slice(0, 12),
+  };
+}
+
+afterAll(async () => {
+  await Promise.all(openDocuments.map((document) => document.destroy()));
+});
+
+describe("NEI-006 real-PDF golden regression pipeline", () => {
+  it("reports strict one-to-one transaction and critical-field correctness", async () => {
+    const reports: GoldenReport[] = [];
+
+    for (const fixture of FIXTURES.filter((item) => item.expectedKind === "text")) {
+      const truth = await loadTruth(fixture.truthFile);
+      const { document, bytes } = await loadFixturePdf(fixture.pdfFile);
+      const sourceHash = createHash("sha256").update(bytes).digest("hex");
+      if (truth.sourceSha256) expect(sourceHash).toBe(truth.sourceSha256);
+
       const extraction = await extractDocumentText(document);
-      expect(extraction.hasExtractableText).toBe(false);
-      expect(extraction.totalTokens).toBe(0);
-    });
+      const reconstruction = reconstructDocument(extraction);
+      const context = makeVerifiedContext(fixture, truth);
+      const parsed = parseDocumentCandidates(reconstruction, context);
+      const report = await buildReport(
+        fixture,
+        truth,
+        bytes,
+        reconstruction,
+        parsed,
+        extraction.totalTokens,
+      );
+      reports.push(report);
+      console.info("[pdf-golden-report]", JSON.stringify(report));
+      expect(extraction.pageCount, fixture.name).toBe(truth.pageCount);
+      expect(extraction.hasExtractableText, fixture.name).toBe(true);
+      expect(reconstruction.pageCount, fixture.name).toBe(truth.pageCount);
+    }
+
+    expect(reports).toHaveLength(3);
+    for (const report of reports) {
+      expect(report.stageCounts.parsedCandidates, report.fixture).toBe(
+        report.stageCounts.reconstructedCandidates,
+      );
+      expect(report.groundTruthRows, report.fixture).toBe(
+        report.fixture === "layout-a-text.pdf" || report.fixture === "layout-b-text.pdf" ? 12 : 60,
+      );
+      expect(report.anchorAlignedRows, report.fixture).toBe(report.groundTruthRows);
+      expect(report.fullyCorrectMatchedRows, report.fixture).toBe(report.groundTruthRows);
+      expect(report.fullyCorrectMatchedRate, report.fixture).toBe(1);
+      expect(report.missingRows, report.fixture).toBe(0);
+      expect(report.mergedRows, report.fixture).toBe(0);
+      expect(report.duplicateCandidates, report.fixture).toBe(0);
+      expect(report.falsePositiveCandidates, report.fixture).toBe(0);
+      expect(report.invalidSourceAnchors, report.fixture).toBe(0);
+      expect(report.stageCounts.readyWithUnresolvedFields, report.fixture).toBe(0);
+      expect(Object.values(report.criticalFieldMismatches), report.fixture).toEqual(
+        Array(Object.keys(report.criticalFieldMismatches).length).fill(0),
+      );
+    }
+  });
+
+  it("keeps real PDF rows unresolved without verified statement and direction context", async () => {
+    const fixture = FIXTURES.find((item) => item.pdfFile === "layout-a-text.pdf");
+    if (!fixture) throw new Error("Maple text fixture is missing");
+    const truth = await loadTruth(fixture.truthFile);
+    const { document } = await loadFixturePdf(fixture.pdfFile);
+    const extraction = await extractDocumentText(document);
+    const reconstruction = reconstructDocument(extraction);
+    const parsed = parseDocumentCandidates(reconstruction, {});
+
+    expect(parsed.candidates).toHaveLength(truth.transactions.length);
+    expect(parsed.candidates.every((candidate) => candidate.resolution === "unresolved")).toBe(
+      true,
+    );
+    expect(parsed.candidates.every((candidate) => candidate.status !== "successfully_parsed")).toBe(
+      true,
+    );
+  });
+
+  it("detects the scanned Harbour PDF as having no embedded text", async () => {
+    const fixture = FIXTURES.find((item) => item.expectedKind === "scanned");
+    if (!fixture) throw new Error("Scanned fixture is missing");
+    const truth = await loadTruth(fixture.truthFile);
+    const { document } = await loadFixturePdf(fixture.pdfFile);
+    const extraction = await extractDocumentText(document);
+
+    expect(document.numPages).toBe(truth.pageCount);
+    expect(extraction.pageCount).toBe(truth.pageCount);
+    expect(extraction.hasExtractableText).toBe(false);
+    expect(extraction.totalTokens).toBe(0);
+    expect(extraction.pages.every((page) => page.tokens.length === 0)).toBe(true);
   });
 });

@@ -1,0 +1,1064 @@
+{
+  "schemaVersion": 1,
+  "id": "motion-synthetic-credit-card-statement",
+  "description": "Four-page, text-native fictional CAD statement with explicit transaction/posting dates, signed amounts, separate original-currency notes, and a 36-degree watermark.",
+  "kind": "text",
+  "sourceFile": "motion-synthetic-credit-card-statement.pdf",
+  "bankName": "Cedarcrest Card Services (fictional)",
+  "accountLabel": "Cedarcrest Credit Card",
+  "periodStart": "2026-10-01",
+  "periodEnd": "2026-10-31",
+  "periodVerified": true,
+  "dateOrder": "MDY",
+  "positiveAmountDirection": "debit",
+  "currency": "CAD",
+  "pageCount": 4,
+  "transactions": [
+    {
+      "sourceRowId": "motion-p01-r01",
+      "transactionDate": "2026-10-01",
+      "postingDate": "2026-10-02",
+      "rawDescription": "FRESHMART SUPERMARKET #018",
+      "transactionType": "purchase",
+      "printedAmountMinor": "5642",
+      "billedAmount": {
+        "amountMinor": "5642",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.5429, 0.9297, 0.5745]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r02",
+      "transactionDate": "2026-10-02",
+      "postingDate": "2026-10-03",
+      "rawDescription": "METRO TRANSIT PRESTO LOAD",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2500",
+      "billedAmount": {
+        "amountMinor": "2500",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.5114, 0.9297, 0.5429]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r03",
+      "transactionDate": "2026-10-02",
+      "postingDate": "2026-10-03",
+      "rawDescription": "NORTHLINE COFFEE - KING ST",
+      "transactionType": "purchase",
+      "printedAmountMinor": "675",
+      "billedAmount": {
+        "amountMinor": "675",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.4798, 0.9297, 0.5114]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r04",
+      "transactionDate": "2026-10-03",
+      "postingDate": "2026-10-04",
+      "rawDescription": "STREAMBOX MONTHLY PLAN",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1499",
+      "billedAmount": {
+        "amountMinor": "1499",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.4482, 0.9297, 0.4798]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r05",
+      "transactionDate": "2026-10-03",
+      "postingDate": "2026-10-05",
+      "rawDescription": "NORTHLINE COFFEE - KING ST",
+      "transactionType": "purchase",
+      "printedAmountMinor": "675",
+      "billedAmount": {
+        "amountMinor": "675",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.4167, 0.9297, 0.4482]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r06",
+      "transactionDate": "2026-10-04",
+      "postingDate": "2026-10-05",
+      "rawDescription": "HARBOR BOOKS & STATIONERY",
+      "transactionType": "purchase",
+      "printedAmountMinor": "3128",
+      "billedAmount": {
+        "amountMinor": "3128",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.3851, 0.9297, 0.4167]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r07",
+      "transactionDate": "2026-10-05",
+      "postingDate": "2026-10-06",
+      "rawDescription": "ONLINE RETAILER MARKETPLACE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "8745",
+      "billedAmount": {
+        "amountMinor": "8745",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.3535, 0.9297, 0.3851]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r08",
+      "transactionDate": "2026-10-05",
+      "postingDate": "2026-10-07",
+      "rawDescription": "PARKSIDE PHARMACY",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1819",
+      "billedAmount": {
+        "amountMinor": "1819",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.322, 0.9297, 0.3535]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r09",
+      "transactionDate": "2026-10-06",
+      "postingDate": "2026-10-07",
+      "rawDescription": "PIZZA & PASTA CO.",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2460",
+      "billedAmount": {
+        "amountMinor": "2460",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.2904, 0.9297, 0.322]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r10",
+      "transactionDate": "2026-10-06",
+      "postingDate": "2026-10-07",
+      "rawDescription": "BAYVIEW HARDWARE STORE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1295",
+      "billedAmount": {
+        "amountMinor": "1295",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.2588, 0.9297, 0.2904]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r11",
+      "transactionDate": "2026-10-07",
+      "postingDate": "2026-10-08",
+      "rawDescription": "MONTHLY CARD PAYMENT",
+      "transactionType": "payment",
+      "printedAmountMinor": "-50000",
+      "billedAmount": {
+        "amountMinor": "50000",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.2273, 0.9297, 0.2588]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r12",
+      "transactionDate": "2026-10-07",
+      "postingDate": "2026-10-09",
+      "rawDescription": "SUNSET FITNESS CLUB",
+      "transactionType": "purchase",
+      "printedAmountMinor": "3999",
+      "billedAmount": {
+        "amountMinor": "3999",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.1957, 0.9297, 0.2273]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r13",
+      "transactionDate": "2026-10-08",
+      "postingDate": "2026-10-09",
+      "rawDescription": "GREENLEAF GROCERIES",
+      "transactionType": "purchase",
+      "printedAmountMinor": "4413",
+      "billedAmount": {
+        "amountMinor": "4413",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.1641, 0.9297, 0.1957]
+      }
+    },
+    {
+      "sourceRowId": "motion-p01-r14",
+      "transactionDate": "2026-10-08",
+      "postingDate": "2026-10-10",
+      "rawDescription": "SQ *EAST SIDE MARKET",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1570",
+      "billedAmount": {
+        "amountMinor": "1570",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 1,
+        "bbox": [0.0703, 0.1326, 0.9297, 0.1641]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r01",
+      "transactionDate": "2026-10-09",
+      "postingDate": "2026-10-10",
+      "rawDescription": "PET SUPPLY DEPOT",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2940",
+      "billedAmount": {
+        "amountMinor": "2940",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.6856, 0.9297, 0.7172]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r02",
+      "transactionDate": "2026-10-09",
+      "postingDate": "2026-10-11",
+      "rawDescription": "BUS TICKET - CITY TRANSIT",
+      "transactionType": "purchase",
+      "printedAmountMinor": "335",
+      "billedAmount": {
+        "amountMinor": "335",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.654, 0.9297, 0.6856]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r03",
+      "transactionDate": "2026-10-10",
+      "postingDate": "2026-10-11",
+      "rawDescription": "MONTHLY CLOUD STORAGE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "299",
+      "billedAmount": {
+        "amountMinor": "299",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.6225, 0.9297, 0.654]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r04",
+      "transactionDate": "2026-10-10",
+      "postingDate": "2026-10-12",
+      "rawDescription": "NORTHLINE COFFEE - KING ST",
+      "transactionType": "purchase",
+      "printedAmountMinor": "675",
+      "billedAmount": {
+        "amountMinor": "675",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.5909, 0.9297, 0.6225]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r05",
+      "transactionDate": "2026-10-11",
+      "postingDate": "2026-10-12",
+      "rawDescription": "URBAN OUTLET - MISSISSAUGA",
+      "transactionType": "purchase",
+      "printedAmountMinor": "7285",
+      "billedAmount": {
+        "amountMinor": "7285",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.5593, 0.9297, 0.5909]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r06",
+      "transactionDate": "2026-10-11",
+      "postingDate": "2026-10-13",
+      "rawDescription": "FRESHMART SUPERMARKET #018",
+      "transactionType": "purchase",
+      "printedAmountMinor": "10237",
+      "billedAmount": {
+        "amountMinor": "10237",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.5278, 0.9297, 0.5593]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r07",
+      "transactionDate": "2026-10-12",
+      "postingDate": "2026-10-13",
+      "rawDescription": "RIVERFRONT RESTAURANT",
+      "transactionType": "purchase",
+      "printedAmountMinor": "4820",
+      "billedAmount": {
+        "amountMinor": "4820",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.4962, 0.9297, 0.5278]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r08",
+      "transactionDate": "2026-10-12",
+      "postingDate": "2026-10-14",
+      "rawDescription": "OVERSEAS DIGITAL SERVICE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2164",
+      "billedAmount": {
+        "amountMinor": "2164",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.4646, 0.9297, 0.4962]
+      },
+      "originalAmount": {
+        "amountMinor": "1599",
+        "currency": "USD",
+        "exponent": 2
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r09",
+      "transactionDate": "2026-10-13",
+      "postingDate": "2026-10-14",
+      "rawDescription": "GAS STATION #0321",
+      "transactionType": "purchase",
+      "printedAmountMinor": "5801",
+      "billedAmount": {
+        "amountMinor": "5801",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.423, 0.9297, 0.4545]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r10",
+      "transactionDate": "2026-10-13",
+      "postingDate": "2026-10-15",
+      "rawDescription": "ONLINE RETAILER RETURN",
+      "transactionType": "refund",
+      "printedAmountMinor": "-1830",
+      "billedAmount": {
+        "amountMinor": "1830",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.3914, 0.9297, 0.423]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r11",
+      "transactionDate": "2026-10-14",
+      "postingDate": "2026-10-15",
+      "rawDescription": "VOLT ELECTRONICS",
+      "transactionType": "purchase",
+      "printedAmountMinor": "19995",
+      "billedAmount": {
+        "amountMinor": "19995",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.3598, 0.9297, 0.3914]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r12",
+      "transactionDate": "2026-10-14",
+      "postingDate": "2026-10-16",
+      "rawDescription": "PARKING APP ZONE 17",
+      "transactionType": "purchase",
+      "printedAmountMinor": "550",
+      "billedAmount": {
+        "amountMinor": "550",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.3283, 0.9297, 0.3598]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r13",
+      "transactionDate": "2026-10-15",
+      "postingDate": "2026-10-16",
+      "rawDescription": "GARDEN SUPPLY CENTER",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2618",
+      "billedAmount": {
+        "amountMinor": "2618",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.2967, 0.9297, 0.3283]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r14",
+      "transactionDate": "2026-10-15",
+      "postingDate": "2026-10-17",
+      "rawDescription": "MONTHLY CARD PAYMENT",
+      "transactionType": "payment",
+      "printedAmountMinor": "-30000",
+      "billedAmount": {
+        "amountMinor": "30000",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.2652, 0.9297, 0.2967]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r15",
+      "transactionDate": "2026-10-16",
+      "postingDate": "2026-10-17",
+      "rawDescription": "MUSEUM ADMISSION TICKET",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1750",
+      "billedAmount": {
+        "amountMinor": "1750",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.2336, 0.9297, 0.2652]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r16",
+      "transactionDate": "2026-10-16",
+      "postingDate": "2026-10-18",
+      "rawDescription": "NORTHLINE COFFEE - KING ST",
+      "transactionType": "purchase",
+      "printedAmountMinor": "675",
+      "billedAmount": {
+        "amountMinor": "675",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.202, 0.9297, 0.2336]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r17",
+      "transactionDate": "2026-10-17",
+      "postingDate": "2026-10-18",
+      "rawDescription": "BAKER STREET BAKERY",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1230",
+      "billedAmount": {
+        "amountMinor": "1230",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.1705, 0.9297, 0.202]
+      }
+    },
+    {
+      "sourceRowId": "motion-p02-r18",
+      "transactionDate": "2026-10-17",
+      "postingDate": "2026-10-19",
+      "rawDescription": "FRESHMART SUPERMARKET #018",
+      "transactionType": "purchase",
+      "printedAmountMinor": "6712",
+      "billedAmount": {
+        "amountMinor": "6712",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 2,
+        "bbox": [0.0703, 0.1389, 0.9297, 0.1705]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r01",
+      "transactionDate": "2026-10-18",
+      "postingDate": "2026-10-19",
+      "rawDescription": "MOVIE HOUSE CINEMA",
+      "transactionType": "purchase",
+      "printedAmountMinor": "3200",
+      "billedAmount": {
+        "amountMinor": "3200",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.6856, 0.9297, 0.7172]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r02",
+      "transactionDate": "2026-10-18",
+      "postingDate": "2026-10-20",
+      "rawDescription": "APP STORE - MUSIC SUBSCRIPTION",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1199",
+      "billedAmount": {
+        "amountMinor": "1199",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.654, 0.9297, 0.6856]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r03",
+      "transactionDate": "2026-10-19",
+      "postingDate": "2026-10-20",
+      "rawDescription": "CAFE AT UNION TERMINAL",
+      "transactionType": "purchase",
+      "printedAmountMinor": "945",
+      "billedAmount": {
+        "amountMinor": "945",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.6225, 0.9297, 0.654]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r04",
+      "transactionDate": "2026-10-19",
+      "postingDate": "2026-10-21",
+      "rawDescription": "ONLINE GAME STORE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2850",
+      "billedAmount": {
+        "amountMinor": "2850",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.5909, 0.9297, 0.6225]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r05",
+      "transactionDate": "2026-10-20",
+      "postingDate": "2026-10-21",
+      "rawDescription": "COASTAL HOTEL RESERVATION",
+      "transactionType": "purchase",
+      "printedAmountMinor": "15874",
+      "billedAmount": {
+        "amountMinor": "15874",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.5593, 0.9297, 0.5909]
+      },
+      "originalAmount": {
+        "amountMinor": "11500",
+        "currency": "USD",
+        "exponent": 2
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r06",
+      "transactionDate": "2026-10-20",
+      "postingDate": "2026-10-22",
+      "rawDescription": "FOREIGN TRANSACTION FEE",
+      "transactionType": "fee",
+      "printedAmountMinor": "318",
+      "billedAmount": {
+        "amountMinor": "318",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.5177, 0.9297, 0.5492]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r07",
+      "transactionDate": "2026-10-21",
+      "postingDate": "2026-10-22",
+      "rawDescription": "RESTAURANT AUTHORIZED CREDIT",
+      "transactionType": "refund",
+      "printedAmountMinor": "-1250",
+      "billedAmount": {
+        "amountMinor": "1250",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.4861, 0.9297, 0.5177]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r08",
+      "transactionDate": "2026-10-21",
+      "postingDate": "2026-10-23",
+      "rawDescription": "EASTWOOD DENTAL CLINIC",
+      "transactionType": "purchase",
+      "printedAmountMinor": "8500",
+      "billedAmount": {
+        "amountMinor": "8500",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.4545, 0.9297, 0.4861]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r09",
+      "transactionDate": "2026-10-22",
+      "postingDate": "2026-10-23",
+      "rawDescription": "WATERFRONT BIKE SHOP",
+      "transactionType": "purchase",
+      "printedAmountMinor": "4999",
+      "billedAmount": {
+        "amountMinor": "4999",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.423, 0.9297, 0.4545]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r10",
+      "transactionDate": "2026-10-22",
+      "postingDate": "2026-10-24",
+      "rawDescription": "FRESHMART SUPERMARKET #018",
+      "transactionType": "purchase",
+      "printedAmountMinor": "3966",
+      "billedAmount": {
+        "amountMinor": "3966",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.3914, 0.9297, 0.423]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r11",
+      "transactionDate": "2026-10-23",
+      "postingDate": "2026-10-24",
+      "rawDescription": "PAYMENT RECEIVED - THANK YOU",
+      "transactionType": "payment",
+      "printedAmountMinor": "-20000",
+      "billedAmount": {
+        "amountMinor": "20000",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.3598, 0.9297, 0.3914]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r12",
+      "transactionDate": "2026-10-23",
+      "postingDate": "2026-10-25",
+      "rawDescription": "LONDON BOOK CLUB ONLINE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1988",
+      "billedAmount": {
+        "amountMinor": "1988",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.3283, 0.9297, 0.3598]
+      },
+      "originalAmount": {
+        "amountMinor": "1095",
+        "currency": "GBP",
+        "exponent": 2
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r13",
+      "transactionDate": "2026-10-24",
+      "postingDate": "2026-10-25",
+      "rawDescription": "CLOTHING OUTLET STORE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "4692",
+      "billedAmount": {
+        "amountMinor": "4692",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.2866, 0.9297, 0.3182]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r14",
+      "transactionDate": "2026-10-24",
+      "postingDate": "2026-10-26",
+      "rawDescription": "NORTHLINE COFFEE - KING ST",
+      "transactionType": "purchase",
+      "printedAmountMinor": "675",
+      "billedAmount": {
+        "amountMinor": "675",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.2551, 0.9297, 0.2866]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r15",
+      "transactionDate": "2026-10-25",
+      "postingDate": "2026-10-26",
+      "rawDescription": "HOME UTILITY SUPPLIES",
+      "transactionType": "purchase",
+      "printedAmountMinor": "5420",
+      "billedAmount": {
+        "amountMinor": "5420",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.2235, 0.9297, 0.2551]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r16",
+      "transactionDate": "2026-10-25",
+      "postingDate": "2026-10-27",
+      "rawDescription": "DELIVERY FOOD SERVICES",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2718",
+      "billedAmount": {
+        "amountMinor": "2718",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.1919, 0.9297, 0.2235]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r17",
+      "transactionDate": "2026-10-26",
+      "postingDate": "2026-10-27",
+      "rawDescription": "AIRPORT EXPRESS SHUTTLE",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2400",
+      "billedAmount": {
+        "amountMinor": "2400",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.1604, 0.9297, 0.1919]
+      }
+    },
+    {
+      "sourceRowId": "motion-p03-r18",
+      "transactionDate": "2026-10-26",
+      "postingDate": "2026-10-28",
+      "rawDescription": "LATE NIGHT DINER",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1855",
+      "billedAmount": {
+        "amountMinor": "1855",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 3,
+        "bbox": [0.0703, 0.1288, 0.9297, 0.1604]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r01",
+      "transactionDate": "2026-10-27",
+      "postingDate": "2026-10-28",
+      "rawDescription": "FRESHMART SUPERMARKET #018",
+      "transactionType": "purchase",
+      "printedAmountMinor": "7731",
+      "billedAmount": {
+        "amountMinor": "7731",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.6856, 0.9297, 0.7172]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r02",
+      "transactionDate": "2026-10-27",
+      "postingDate": "2026-10-29",
+      "rawDescription": "CORNER CONVENIENCE SHOP",
+      "transactionType": "purchase",
+      "printedAmountMinor": "845",
+      "billedAmount": {
+        "amountMinor": "845",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.654, 0.9297, 0.6856]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r03",
+      "transactionDate": "2026-10-28",
+      "postingDate": "2026-10-29",
+      "rawDescription": "APP REFUND - CLOUD STORAGE",
+      "transactionType": "refund",
+      "printedAmountMinor": "-299",
+      "billedAmount": {
+        "amountMinor": "299",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.6225, 0.9297, 0.654]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r04",
+      "transactionDate": "2026-10-28",
+      "postingDate": "2026-10-30",
+      "rawDescription": "CAMPUS PRINTING SERVICES",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1320",
+      "billedAmount": {
+        "amountMinor": "1320",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.5909, 0.9297, 0.6225]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r05",
+      "transactionDate": "2026-10-29",
+      "postingDate": "2026-10-30",
+      "rawDescription": "FUEL STATION #0782",
+      "transactionType": "purchase",
+      "printedAmountMinor": "4275",
+      "billedAmount": {
+        "amountMinor": "4275",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.5593, 0.9297, 0.5909]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r06",
+      "transactionDate": "2026-10-29",
+      "postingDate": "2026-10-31",
+      "rawDescription": "NORTHLINE COFFEE - KING ST",
+      "transactionType": "purchase",
+      "printedAmountMinor": "675",
+      "billedAmount": {
+        "amountMinor": "675",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.5278, 0.9297, 0.5593]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r07",
+      "transactionDate": "2026-10-30",
+      "postingDate": "2026-10-31",
+      "rawDescription": "REC CENTER DROP-IN",
+      "transactionType": "purchase",
+      "printedAmountMinor": "1400",
+      "billedAmount": {
+        "amountMinor": "1400",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.4962, 0.9297, 0.5278]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r08",
+      "transactionDate": "2026-10-30",
+      "postingDate": "2026-10-31",
+      "rawDescription": "BANK SERVICE ADJUSTMENT",
+      "transactionType": "adjustment",
+      "printedAmountMinor": "-500",
+      "billedAmount": {
+        "amountMinor": "500",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.4646, 0.9297, 0.4962]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r09",
+      "transactionDate": "2026-10-31",
+      "postingDate": "2026-10-31",
+      "rawDescription": "FRESHMART SUPERMARKET #018",
+      "transactionType": "purchase",
+      "printedAmountMinor": "8162",
+      "billedAmount": {
+        "amountMinor": "8162",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.4331, 0.9297, 0.4646]
+      }
+    },
+    {
+      "sourceRowId": "motion-p04-r10",
+      "transactionDate": "2026-10-31",
+      "postingDate": "2026-10-31",
+      "rawDescription": "LOCAL COMMUNITY THEATER",
+      "transactionType": "purchase",
+      "printedAmountMinor": "2200",
+      "billedAmount": {
+        "amountMinor": "2200",
+        "currency": "CAD",
+        "exponent": 2
+      },
+      "sourceAnchor": {
+        "page": 4,
+        "bbox": [0.0703, 0.4015, 0.9297, 0.4331]
+      }
+    }
+  ],
+  "controls": {
+    "openingBalanceMinor": "72560",
+    "closingBalanceMinor": "163394",
+    "purchaseTotalMinor": "194395",
+    "feeTotalMinor": "318",
+    "positiveRowTotalMinor": "194713",
+    "negativeRowTotalMinor": "-103879",
+    "transactionCount": 60
+  },
+  "sourceSha256": "f06f37e0715fbfedccb83056be0e0023da4a83ad224ebd31e984970abd24f744",
+  "provenance": "Derived offline from the source PDF's printed text and table coordinates with pypdf 6.7.4; see docs/testing.md, Motion golden provenance. Type labels are classified from printed descriptions and signed amounts. Original-currency annotations are not substituted for billed CAD amounts."
+}

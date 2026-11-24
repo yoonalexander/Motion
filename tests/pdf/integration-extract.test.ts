@@ -1,10 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
-import {
-  extractDocumentText,
-  tokenToAnchor,
-  type ExtractionResult,
-} from "@/lib/pdf";
+import { extractDocumentText, tokenToAnchor, type ExtractionResult } from "@/lib/pdf";
 
 const mockGetDocument = vi.fn();
 const mockGetPage = vi.fn();
@@ -34,7 +30,7 @@ function makePage(
     width: number;
     height: number;
     hasEOL?: boolean;
-  }>
+  }>,
 ): PDFPageProxy {
   return {
     pageNumber,
@@ -52,7 +48,7 @@ function makePage(
   } as unknown as PDFPageProxy;
 }
 
-describe("Motion_Synthetic_Credit_Card_Statement.pdf integration", () => {
+describe("PDF.js document extraction contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -61,15 +57,30 @@ describe("Motion_Synthetic_Credit_Card_Statement.pdf integration", () => {
         pageNumber === 1
           ? [
               { str: "09/02/2026", transform: [1, 0, 0, 1, 39.24, 638.4], width: 70, height: 10 },
-              { str: "COFFEE HOUSE DOWNTOWN", transform: [1, 0, 0, 1, 150, 638.4], width: 150, height: 10 },
+              {
+                str: "COFFEE HOUSE DOWNTOWN",
+                transform: [1, 0, 0, 1, 150, 638.4],
+                width: 150,
+                height: 10,
+              },
               { str: "4.85", transform: [1, 0, 0, 1, 450, 638.4], width: 30, height: 10 },
               { str: "09/05/2026", transform: [1, 0, 0, 1, 39.24, 600], width: 70, height: 10 },
-              { str: "STREAMING SUBSCRIPTION", transform: [1, 0, 0, 1, 150, 600], width: 140, height: 10 },
+              {
+                str: "STREAMING SUBSCRIPTION",
+                transform: [1, 0, 0, 1, 150, 600],
+                width: 140,
+                height: 10,
+              },
               { str: "16.99", transform: [1, 0, 0, 1, 450, 600], width: 35, height: 10 },
             ]
           : [
               { str: "09/03/2026", transform: [1, 0, 0, 1, 39.24, 600], width: 70, height: 10 },
-              { str: "METRO GROCERY #142", transform: [1, 0, 0, 1, 150, 600], width: 130, height: 10 },
+              {
+                str: "METRO GROCERY #142",
+                transform: [1, 0, 0, 1, 150, 600],
+                width: 130,
+                height: 10,
+              },
               { str: "86.42", transform: [1, 0, 0, 1, 450, 600], width: 35, height: 10 },
               { str: "09/07/2026", transform: [1, 0, 0, 1, 39.24, 560], width: 70, height: 10 },
               { str: "GAS STATION 24", transform: [1, 0, 0, 1, 150, 560], width: 100, height: 10 },
@@ -161,9 +172,11 @@ describe("Motion_Synthetic_Credit_Card_Statement.pdf integration", () => {
     }
   });
 
-  it("yields substantial token coverage across the statement", async () => {
+  it("assigns distinct source token IDs across both pages", async () => {
     const result: ExtractionResult = await extractDocumentText(mockDocument);
 
-    expect(result.totalTokens).toBeGreaterThan(10);
+    const tokenIds = result.pages.flatMap((page) => page.tokens.map((token) => token.tokenId));
+    expect(tokenIds).toHaveLength(12);
+    expect(new Set(tokenIds).size).toBe(12);
   });
 });
