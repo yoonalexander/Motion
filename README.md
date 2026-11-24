@@ -55,6 +55,8 @@ npm run dev
 
 The app runs at <http://localhost:3000>. `.env.example` contains safe placeholders; `.env.local` is ignored by Git. Never commit real credentials, bank statements, or personal financial data.
 
+The browser-local PDF extraction debugger is available during development at <http://localhost:3000/debug/pdf>. It is gated to development mode and is not part of the home page or production interface. Use **Reset document** or leave the route to release the loaded PDF and clear its extracted text and parsed rows.
+
 Validation commands:
 
 ```bash
@@ -70,4 +72,4 @@ Synthetic fixtures live in `tests/fixtures/synthetic/`. Regenerate them with `np
 
 ## License
 
-Not yet selected. An open-source license will be chosen before the first public release (roadmap Phase 8). Will do in the future. 
+Not yet selected. An open-source license will be chosen before the first public release (roadmap Phase 8). Will do in the future.

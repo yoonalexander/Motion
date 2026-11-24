@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PDFViewer } from "@/components/pdf-viewer/PDFViewer";
-import { TextExtractionDebug } from "@/components/pdf-viewer/TextExtractionDebug";
 
 const foundations = [
   { label: "Next.js App Router + TypeScript", status: "Ready" },
@@ -49,15 +48,6 @@ export default function HomePage() {
         </CardHeader>
         <CardContent>
           <PDFViewer />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>PDF Extraction Debug (NEI-005 · Development)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TextExtractionDebug />
         </CardContent>
       </Card>
 
