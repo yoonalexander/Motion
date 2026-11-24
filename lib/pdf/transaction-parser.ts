@@ -281,10 +281,11 @@ export function parseCandidateRow(
   let money: Money | undefined;
 
   if (fields.billedAmount) {
+    const enteredCurrency = context.currency?.trim().toUpperCase();
     const { amountMinor, currency, exponent, signNegative, inParentheses, diagnostic, direction } =
       parseAmount(fields.billedAmount.raw, {
         ...context,
-        currency: context.currency ?? headerCurrency,
+        currency: headerCurrency ?? enteredCurrency,
       });
     rawFields.amountSignNegative = signNegative;
     rawFields.amountInParentheses = inParentheses;
@@ -298,6 +299,14 @@ export function parseCandidateRow(
     }
     if (amountMinor !== null && currency !== null && exponent !== null) {
       money = { amountMinor, currency, exponent };
+    }
+    if (
+      headerCurrency &&
+      ((enteredCurrency && enteredCurrency !== headerCurrency) ||
+        (currency && currency !== headerCurrency))
+    ) {
+      flags.push("ambiguous_amount");
+      diagnostics.push("conflicting_statement_currency");
     }
     if (diagnostic) {
       flags.push("ambiguous_amount");

@@ -195,6 +195,26 @@ describe("positioned fields from real PDFs", () => {
     });
   });
 
+  it("preserves the printed ledger currency when entered context conflicts", async () => {
+    const rows = await parseFixture("motion-synthetic-credit-card-statement.pdf", {
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      periodVerified: true,
+      positiveAmountDirection: "debit",
+      currency: "USD",
+    });
+    const payment = rows.find((entry) => entry.str.includes("MONTHLY CARD PAYMENT"));
+
+    expect(payment?.resolution).toBe("unresolved");
+    expect(payment?.transaction).toBeUndefined();
+    expect(payment?.partial?.billedAmount).toEqual({
+      amountMinor: "50000",
+      currency: "CAD",
+      exponent: 2,
+    });
+    expect(payment?.diagnostics).toContain("conflicting_statement_currency");
+  });
+
   it("retains all printed Motion original amounts outside the billed column", async () => {
     const rows = await parseFixture("motion-synthetic-credit-card-statement.pdf", {
       dateOrder: "MDY",
