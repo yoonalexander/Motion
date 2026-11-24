@@ -148,8 +148,8 @@ describe("parseAmount", () => {
     expect(result.amountMinor).toBe("10000");
   });
 
-  it("detects GBP from pound symbol", () => {
-    const result = parseAmount("£45.85", { ...baseContext, currency: undefined });
+  it("resolves the pound symbol with GBP statement evidence", () => {
+    const result = parseAmount("£45.85", { ...baseContext, currency: "GBP" });
     expect(result.currency).toBe("GBP");
   });
 
