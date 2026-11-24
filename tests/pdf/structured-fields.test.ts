@@ -8,7 +8,11 @@ import {
   parseDocumentCandidates,
   type StatementContext,
 } from "@/lib/pdf/transaction-parser";
-import { reconstructDocument, type CandidateTransactionRow } from "@/lib/pdf/text-reconstructor";
+import {
+  reconstructDocument,
+  type CandidateTransactionRow,
+  type TextLine,
+} from "@/lib/pdf/text-reconstructor";
 
 function row(str: string, multiline = false): CandidateTransactionRow {
   return {
@@ -68,10 +72,32 @@ describe("extracting exact statement fields", () => {
   });
 
   it("keeps an original FX amount distinct from the billed amount", () => {
-    const str = "01/15/2026 01/16/2026 GAP $22.00 | Original purchase: 15.99 USD | Billed in CAD";
-    const result = parseCandidateRow(row(str, true), { dateOrder: "MDY", currency: "CAD" });
+    const purchase = "01/15/2026 01/16/2026 GAP $22.00";
+    const fxNote = "Original purchase: 15.99 USD | Billed in CAD";
+    const candidate = { ...row(`${purchase} | ${fxNote}`, true), lineIds: ["main", "fx"] };
+    const lines = [purchase, fxNote].map((str, index): TextLine => ({
+      str,
+      page: candidate.page,
+      lineId: candidate.lineIds[index],
+      bbox: candidate.bbox,
+      tokenIds: [],
+      tokenCount: 0,
+      yCenter: 0.8 - index * 0.04,
+      xStart: 0.1,
+      xEnd: 0.9,
+      height: 0.02,
+      diagnostics: [],
+    }));
+    const result = parseCandidateRow(
+      candidate,
+      {
+        dateOrder: "MDY",
+        positiveAmountDirection: "debit",
+      },
+      { tokens: [], lines },
+    );
 
-    expect(result.transaction ?? result.partial).toMatchObject({
+    expect(result.transaction).toMatchObject({
       transactionDate: "2026-01-15",
       postingDate: "2026-01-16",
       billedAmount: { amountMinor: "2200", currency: "CAD" },
@@ -81,6 +107,36 @@ describe("extracting exact statement fields", () => {
     const fields = result.rawFields.fieldSpans;
     expect(fields?.originalAmount?.raw).toBe("15.99 USD");
     expect(fields?.description.map((span) => span.raw)).toEqual(["GAP"]);
+    expect(fields?.fxMetadata.map((span) => span.raw)).toEqual([fxNote]);
+  });
+
+  it("keeps the printed billed currency when it conflicts with the entered currency", () => {
+    const result = parseCandidateRow(row("01/15/2026 GAP $45.85 | Billed in CAD", true), {
+      currency: "USD",
+      positiveAmountDirection: "debit",
+    });
+
+    expect(result.resolution).toBe("unresolved");
+    expect(result.transaction).toBeUndefined();
+    expect(result.partial?.billedAmount).toEqual({
+      amountMinor: "4585",
+      currency: "CAD",
+      exponent: 2,
+    });
+    expect(result.diagnostics).toContain("conflicting_statement_currency");
+    expect(result.rawFields.fieldSpans?.fxMetadata.map(({ raw }) => raw)).toEqual([
+      "Billed in CAD",
+    ]);
+  });
+
+  it("retains conflicting printed billing currencies without choosing billed money", () => {
+    const source = row("01/15/2026 GAP $45.85 | Billed in CAD | Billed in USD", true);
+    const result = parseCandidateRow(source, { currency: "USD", positiveAmountDirection: "debit" });
+
+    expect(result.resolution).toBe("unresolved");
+    expect(result.partial?.billedAmount).toBeUndefined();
+    expect(result.diagnostics).toContain("conflicting_statement_currency");
+    expect(result.rawFields.printedLedgerCurrencies).toEqual(["CAD", "USD"]);
   });
 });
 
@@ -100,6 +156,31 @@ async function parseFixture(name: string, context: StatementContext) {
 }
 
 describe("positioned fields from real PDFs", () => {
+  it("does not replace an unsupported printed ledger currency with entered context", async () => {
+    const document = await PDFDocument.create();
+    const font = await document.embedFont(StandardFonts.Helvetica);
+    const page = document.addPage([600, 800]);
+    for (const [x, header, value] of [
+      [48, "TRANS DATE", "01/15/2026"],
+      [245, "DESCRIPTION", "GAP"],
+      [460, "XAU AMOUNT", "$45.85"],
+    ] as const) {
+      page.drawText(header, { x, y: 625, font, size: 10 });
+      page.drawText(value, { x, y: 600, font, size: 10 });
+    }
+
+    const [parsed] = await parsePdf(await document.save(), {
+      currency: "USD",
+      positiveAmountDirection: "debit",
+    });
+
+    expect(parsed.resolution).toBe("unresolved");
+    expect(parsed.transaction).toBeUndefined();
+    expect(parsed.partial?.billedAmount).toBeUndefined();
+    expect(parsed.diagnostics).toContain("unsupported_statement_currency");
+    expect(parsed.rawFields.printedLedgerCurrencies).toEqual(["XAU"]);
+  });
+
   it("uses reordered headers and keeps the complete printed currency field", async () => {
     const document = await PDFDocument.create();
     const font = await document.embedFont(StandardFonts.Helvetica);
