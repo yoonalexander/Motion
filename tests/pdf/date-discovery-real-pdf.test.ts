@@ -36,4 +36,18 @@ describe("yearless date discovery in the Motion synthetic PDF", () => {
 
     expect(spans.some((span) => !span.hasExplicitYear)).toBe(true);
   });
+
+  it("keeps original-currency details on their respective yearless transactions", async () => {
+    const reconstruction = reconstructDocument(await extractDocumentText(document));
+    const originalCurrencyRows = reconstruction.pages
+      .flatMap((page) => page.candidates)
+      .filter((candidate) => candidate.str.includes("Original purchase:"));
+
+    expect(originalCurrencyRows.map(({ str }) => str)).toEqual([
+      expect.stringContaining("OVERSEAS DIGITAL SERVICE"),
+      expect.stringContaining("COASTAL HOTEL RESERVATION"),
+      expect.stringContaining("LONDON BOOK CLUB ONLINE"),
+    ]);
+    expect(originalCurrencyRows.every(({ lineIds }) => lineIds.length === 2)).toBe(true);
+  });
 });
