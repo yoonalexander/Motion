@@ -229,6 +229,36 @@ describe("detectTables", () => {
 });
 
 describe("detectCandidateRows", () => {
+  it("detects yearless numeric and named-month dates without starting from unrelated headers", () => {
+    const lines: TextLine[] = [
+      {
+        lineId: "yearless", str: "10/01  10/02  FRESHMART  56.42", page: 1,
+        bbox: [0.05, 0.8, 0.9, 0.82], tokenIds: ["t1"], tokenCount: 1,
+        yCenter: 0.81, xStart: 0.05, xEnd: 0.9, height: 0.02, diagnostics: [],
+      },
+      {
+        lineId: "named", str: "OCT 03  BOOK SHOP  8.00", page: 1,
+        bbox: [0.05, 0.77, 0.9, 0.79], tokenIds: ["t2"], tokenCount: 1,
+        yCenter: 0.78, xStart: 0.05, xEnd: 0.9, height: 0.02, diagnostics: [],
+      },
+      {
+        lineId: "header", str: "STATEMENT PERIOD 10/01 - 10/31", page: 1,
+        bbox: [0.05, 0.9, 0.9, 0.92], tokenIds: ["t3"], tokenCount: 1,
+        yCenter: 0.91, xStart: 0.05, xEnd: 0.9, height: 0.02, diagnostics: [],
+      },
+    ];
+
+    const { candidates, unmatchedLineIds } = detectCandidateRows(
+      makePage([], 1) as ExtractedPage,
+      lines,
+      [],
+      defaultConfig
+    );
+
+    expect(candidates.map((candidate) => candidate.lineIds)).toEqual([["yearless"], ["named"]]);
+    expect(unmatchedLineIds).toContain("header");
+  });
+
   it("creates a candidate row from a date-like line", () => {
     const lines: TextLine[] = [
       {
