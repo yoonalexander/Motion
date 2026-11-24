@@ -1,23 +1,21 @@
 import "client-only";
 import { z } from "zod";
 import { parseAmount } from "./money-parser";
-import type { CandidateTransactionRow } from "./text-reconstructor";
-import type { ExtractedPage } from "./text-extractor";
-import { findDateSpans, parseDate } from "./date-parser";
+import type { CandidateTransactionRow, PageReconstruction } from "./text-reconstructor";
+import { parseDate } from "./date-parser";
+import {
+  extractStatementFields,
+  type ParsedFieldSpans,
+  type PositionedSource,
+} from "./statement-fields";
 export { findDateSpans, parseDate } from "./date-parser";
 export type { DateSpan } from "./date-parser";
+export type { FieldSpan, ParsedFieldSpans, PositionedSource } from "./statement-fields";
 import {
   parsedTransactionSchema,
-  moneySchema,
-  isoDateSchema,
-  currencyCodeSchema,
   transactionTypeSchema,
-  classificationFlagSchema,
-  reviewStatusSchema,
-  pdfAnchorSchema,
   type ParsedTransaction,
   type Money,
-  type PdfAnchor,
   type ClassificationFlag,
 } from "@/schemas/transaction";
 
@@ -72,6 +70,9 @@ export interface RawParsedFields {
   yearInferred: boolean;
   amountSignNegative: boolean;
   amountInParentheses: boolean;
+  fieldSpans?: ParsedFieldSpans;
+  amountDirection?: "debit" | "credit" | null;
+  detectedOriginalAmount?: Money | null;
 }
 
 export interface ParseResult {
@@ -101,7 +102,7 @@ const typeKeywords: Record<string, string[]> = {
 export function inferTransactionType(
   description: string,
   amountSignNegative: boolean,
-  inParentheses: boolean
+  inParentheses: boolean,
 ): { type: string; confident: boolean } {
   const upper = description.toUpperCase();
 
@@ -131,10 +132,15 @@ export function inferTransactionType(
  * Extracts a merchant description from a candidate row string.
  * Removes date and amount tokens, preserving multiline content.
  */
-export function extractMerchantDescription(
-  rowStr: string,
-  rawFields: RawParsedFields
-): string {
+export function extractMerchantDescription(rowStr: string, rawFields: RawParsedFields): string {
+  if (rawFields.fieldSpans) {
+    return rawFields.fieldSpans.description
+      .map((span) => span.raw)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   let desc = rowStr;
 
   // Remove detected date strings
@@ -147,9 +153,6 @@ export function extractMerchantDescription(
     desc = desc.replace(amountStr, " ").trim();
   }
 
-  // Remove currency codes
-  desc = desc.replace(/\b[A-Z]{3}\b/g, " ").trim();
-
   // Collapse whitespace
   desc = desc.replace(/\s+/g, " ").trim();
 
@@ -160,8 +163,6 @@ export function extractMerchantDescription(
 // Main parser
 // ---------------------------------------------------------------------------
 
-const amountPattern = /-?\d[\d,]*(?:\.\d{1,2})?|\(-?\d[\d,]*(?:\.\d{1,2})?\)/;
-
 /**
  * Parses a CandidateTransactionRow into a validated financial record.
  *
@@ -171,11 +172,19 @@ const amountPattern = /-?\d[\d,]*(?:\.\d{1,2})?|\(-?\d[\d,]*(?:\.\d{1,2})?\)/;
 export function parseCandidateRow(
   row: CandidateTransactionRow,
   context: StatementContext,
-  pageTokens?: ExtractedPage
+  source?: PositionedSource,
 ): ParsedCandidate {
+  const {
+    fields,
+    ambiguousDates,
+    ambiguousBilledAmount,
+    ambiguousOriginalAmount,
+    columnDirection,
+    headerCurrency,
+  } = extractStatementFields(row, source);
   const rawFields: RawParsedFields = {
-    dateLikeMatches: [],
-    amountLikeMatches: [],
+    dateLikeMatches: fields.dates.map((span) => span.raw),
+    amountLikeMatches: fields.amounts.map((span) => span.raw),
     detectedDate: null,
     detectedPostingDate: null,
     detectedAmountMinor: null,
@@ -185,29 +194,25 @@ export function parseCandidateRow(
     yearInferred: false,
     amountSignNegative: false,
     amountInParentheses: false,
+    fieldSpans: fields,
+    amountDirection: null,
+    detectedOriginalAmount: null,
   };
 
   const flags: ClassificationFlag[] = [];
   const diagnostics: string[] = [];
 
-  // Extract date-like and amount-like matches from the row string
-  const dateSpans = findDateSpans(row.str);
-  const dateMatches = dateSpans.map((span) => span.raw);
-  const amountSearch = row.str.split("");
-  for (const span of [...dateSpans].sort((a, b) => b.start - a.start)) {
-    amountSearch.splice(span.start, span.end - span.start, ..." ".repeat(span.end - span.start));
-  }
-  const amountMatches = [...(amountSearch.join("").match(amountPattern) ?? [])];
-  rawFields.dateLikeMatches = dateMatches;
-  rawFields.amountLikeMatches = amountMatches;
-
   // Parse dates
   let transactionDate: string | null = null;
   let postingDate: string | null = null;
-  let dateAmbiguous = false;
+  let dateAmbiguous = ambiguousDates;
+  if (ambiguousDates) {
+    flags.push("ambiguous_date");
+    diagnostics.push("ambiguous_date_columns");
+  }
 
-  if (dateMatches.length >= 1) {
-    const first = parseDate(dateMatches[0]!, context);
+  if (fields.transactionDate) {
+    const first = parseDate(fields.transactionDate.raw, context);
     transactionDate = first.isoDate;
     dateAmbiguous = dateAmbiguous || first.ambiguous;
     rawFields.yearInferred = rawFields.yearInferred || first.yearInferred;
@@ -220,8 +225,8 @@ export function parseCandidateRow(
     }
   }
 
-  if (dateMatches.length >= 2) {
-    const second = parseDate(dateMatches[1]!, context);
+  if (fields.postingDate) {
+    const second = parseDate(fields.postingDate.raw, context);
     postingDate = second.isoDate;
     dateAmbiguous = dateAmbiguous || second.ambiguous;
     rawFields.yearInferred = rawFields.yearInferred || second.yearInferred;
@@ -242,13 +247,22 @@ export function parseCandidateRow(
   // Parse amount
   let money: Money | undefined;
 
-  if (amountMatches.length >= 1) {
-    const { amountMinor, currency, exponent, signNegative, inParentheses, diagnostic } =
-      parseAmount(amountMatches[0]!, context);
+  if (fields.billedAmount) {
+    const { amountMinor, currency, exponent, signNegative, inParentheses, diagnostic, direction } =
+      parseAmount(fields.billedAmount.raw, {
+        ...context,
+        currency: context.currency ?? headerCurrency,
+      });
     rawFields.amountSignNegative = signNegative;
     rawFields.amountInParentheses = inParentheses;
     rawFields.detectedAmountMinor = amountMinor;
     rawFields.detectedCurrency = currency;
+    if (direction && columnDirection && direction !== columnDirection) {
+      flags.push("ambiguous_direction");
+      diagnostics.push("conflicting_amount_direction");
+    } else {
+      rawFields.amountDirection = direction ?? columnDirection;
+    }
     if (amountMinor !== null && currency !== null && exponent !== null) {
       money = { amountMinor, currency, exponent };
     }
@@ -256,20 +270,38 @@ export function parseCandidateRow(
       flags.push("ambiguous_amount");
       diagnostics.push(diagnostic);
     }
+  } else if (ambiguousBilledAmount) {
+    flags.push("ambiguous_amount");
+    diagnostics.push("ambiguous_billed_amount");
   } else {
     flags.push("missing_amount");
     diagnostics.push("no_amount_found");
+  }
+
+  let originalAmount: Money | undefined;
+  if (fields.originalAmount) {
+    const original = parseAmount(fields.originalAmount.raw, { ...context, currency: undefined });
+    if (original.amountMinor !== null && original.currency !== null && original.exponent !== null) {
+      originalAmount = {
+        amountMinor: original.amountMinor,
+        currency: original.currency,
+        exponent: original.exponent,
+      };
+      rawFields.detectedOriginalAmount = originalAmount;
+    } else if (original.diagnostic) {
+      flags.push("ambiguous_amount");
+      diagnostics.push(`original_${original.diagnostic}`);
+    }
+  } else if (ambiguousOriginalAmount) {
+    flags.push("ambiguous_amount");
+    diagnostics.push("ambiguous_original_amount");
   }
 
   // Infer transaction type
   const { amountSignNegative, amountInParentheses } = rawFields;
   const merchantDesc = extractMerchantDescription(row.str, rawFields);
   rawFields.detectedMerchant = merchantDesc;
-  const typeInfo = inferTransactionType(
-    merchantDesc,
-    amountSignNegative,
-    amountInParentheses
-  );
+  const typeInfo = inferTransactionType(merchantDesc, amountSignNegative, amountInParentheses);
   rawFields.detectedType = typeInfo.type;
 
   let transactionType = typeInfo.type;
@@ -301,7 +333,12 @@ export function parseCandidateRow(
   } else if (!hasDate || !hasAmount) {
     status = "partially_parsed";
     diagnostics.push("missing_required_fields");
-  } else if (dateAmbiguous || !typeInfo.confident) {
+  } else if (
+    dateAmbiguous ||
+    flags.includes("ambiguous_amount") ||
+    flags.includes("ambiguous_direction") ||
+    !typeInfo.confident
+  ) {
     status = "needs_review";
     diagnostics.push("ambiguous_fields");
   } else {
@@ -320,6 +357,7 @@ export function parseCandidateRow(
       normalizedMerchant: merchantDesc || undefined,
       transactionType: transactionType as z.infer<typeof transactionTypeSchema>,
       billedAmount: money,
+      originalAmount,
       source: "statement_pdf",
       sourceAnchor: {
         page: row.page,
@@ -332,9 +370,7 @@ export function parseCandidateRow(
     };
 
     // Validate against Zod schema
-    const validationResult = parsedTransactionSchema.safeParse(
-      candidateTransaction
-    );
+    const validationResult = parsedTransactionSchema.safeParse(candidateTransaction);
 
     if (validationResult.success) {
       transaction = validationResult.data;
@@ -383,9 +419,14 @@ export function parseCandidateRow(
 /**
  * Parses all candidate rows from a ReconstructionResult into parsed candidates.
  */
+interface CandidateDocument {
+  pageCount: number;
+  pages: readonly (PositionedSource & Pick<PageReconstruction, "candidates">)[];
+}
+
 export function parseDocumentCandidates(
-  reconstruction: any, // ReconstructionResult
-  context: StatementContext
+  reconstruction: CandidateDocument,
+  context: StatementContext,
 ): ParseResult {
   const candidates: ParsedCandidate[] = [];
   const notATransactionIds: string[] = [];
@@ -394,7 +435,7 @@ export function parseDocumentCandidates(
 
   for (const page of reconstruction.pages) {
     for (const candidate of page.candidates) {
-      const parsed = parseCandidateRow(candidate, context);
+      const parsed = parseCandidateRow(candidate, context, page);
       candidates.push(parsed);
 
       switch (parsed.status) {

@@ -45,6 +45,9 @@ export {
   type ParsedCandidate,
   type ParsingStatus,
   type RawParsedFields,
+  type FieldSpan,
+  type ParsedFieldSpans,
+  type PositionedSource,
   type ParseResult,
 } from "./transaction-parser";
 export { findDateSpans } from "./date-parser";
