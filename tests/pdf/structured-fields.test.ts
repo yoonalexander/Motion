@@ -138,6 +138,47 @@ describe("extracting exact statement fields", () => {
     expect(result.diagnostics).toContain("conflicting_statement_currency");
     expect(result.rawFields.printedLedgerCurrencies).toEqual(["CAD", "USD"]);
   });
+
+  it.each([
+    ["Original purchase:", "missing_original_amount"],
+    ["Original amount: unreadable", "original_invalid_amount"],
+    ["Original purchase: 15.99 USD extra text", "original_invalid_amount"],
+    ["Original amount: 15.99 USD or 18.00 EUR", "ambiguous_original_amount"],
+    ["Original purchase: 1,234 KWD", "original_ambiguous_separator"],
+    ["Original amount: 15.99", "original_unresolved_currency"],
+    ["Original purchase: 15.99 XAU", "original_unsupported_currency"],
+  ])("requires review for %s and retains the original source note", (note, diagnostic) => {
+    const result = parseCandidateRow(row(`01/15/2026 GAP $22.00 | ${note}`, true), {
+      currency: "CAD",
+      positiveAmountDirection: "debit",
+    });
+
+    expect(result).toMatchObject({
+      resolution: "unresolved",
+      status: "needs_review",
+      partial: {
+        billedAmount: { amountMinor: "2200", currency: "CAD", exponent: 2 },
+        rawDescription: "GAP",
+      },
+    });
+    expect(result.transaction).toBeUndefined();
+    expect(result.partial?.originalAmount).toBeUndefined();
+    expect(result.diagnostics).toContain(diagnostic);
+    expect(result.rawFields.fieldSpans?.fxMetadata.map(({ raw }) => raw)).toEqual([note]);
+  });
+
+  it("keeps both FX notes for review when only one contains a parseable amount", () => {
+    const notes = ["Original purchase: 15.99 USD", "Original amount: unreadable"];
+    const result = parseCandidateRow(row(`01/15/2026 GAP $22.00 | ${notes.join(" | ")}`, true), {
+      currency: "CAD",
+      positiveAmountDirection: "debit",
+    });
+
+    expect(result.resolution).toBe("unresolved");
+    expect(result.partial?.originalAmount).toBeUndefined();
+    expect(result.diagnostics).toContain("ambiguous_original_amount");
+    expect(result.rawFields.fieldSpans?.fxMetadata.map(({ raw }) => raw)).toEqual(notes);
+  });
 });
 
 async function parsePdf(data: Uint8Array, context: StatementContext) {

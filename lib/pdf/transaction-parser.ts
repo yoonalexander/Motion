@@ -37,6 +37,12 @@ const parsedStatementTransactionSchema = parsedTransactionSchema.extend({
   reviewStatus: z.literal("ready"),
 });
 
+const reconstructionReviewDiagnostics = new Set([
+  "uncertain_line_grouping",
+  "ambiguous_continuation",
+  "uncertain_description_column",
+]);
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -152,6 +158,7 @@ export function parseCandidateRow(
     fields,
     ambiguousDates,
     ambiguousBilledAmount,
+    missingOriginalAmount,
     ambiguousOriginalAmount,
     columnDirection,
     printedLedgerCurrencies,
@@ -295,13 +302,19 @@ export function parseCandidateRow(
         exponent: original.exponent,
       };
       rawFields.detectedOriginalAmount = originalAmount;
-    } else if (original.diagnostic) {
+    } else {
       flags.push("ambiguous_amount");
-      diagnostics.push(`original_${original.diagnostic}`);
+      diagnostics.push(
+        ambiguousOriginalAmount && original.diagnostic === "invalid_amount"
+          ? "ambiguous_original_amount"
+          : `original_${original.diagnostic ?? "invalid_amount"}`,
+      );
     }
-  } else if (ambiguousOriginalAmount) {
+  } else if (missingOriginalAmount || ambiguousOriginalAmount) {
     flags.push("ambiguous_amount");
-    diagnostics.push("ambiguous_original_amount");
+    diagnostics.push(
+      missingOriginalAmount ? "missing_original_amount" : "ambiguous_original_amount",
+    );
   }
 
   const merchantDesc = extractMerchantDescription(row.str, rawFields);
@@ -363,6 +376,7 @@ export function parseCandidateRow(
   } else if (!transactionDate || !money || !merchantDesc) {
     diagnostics.push("missing_required_fields");
   } else if (
+    row.diagnostics.some((diagnostic) => reconstructionReviewDiagnostics.has(diagnostic)) ||
     dateAmbiguous ||
     (fields.postingDate && !postingDate) ||
     flags.includes("ambiguous_amount") ||

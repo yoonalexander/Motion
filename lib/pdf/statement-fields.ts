@@ -287,12 +287,28 @@ export function extractStatementFields(row: CandidateTransactionRow, source?: Po
   const printedLedgerCurrencies = [
     ...new Set([...columns.flatMap(({ currencies }) => currencies), ...billedNoteCurrencies]),
   ];
-  const original = amounts.filter((span) =>
-    notes.some(
-      (note) => originalLabel.test(str.slice(note.start, note.end)) && overlaps(span, note),
-    ),
-  );
-  const originalAmount = original.length === 1 ? original[0] : undefined;
+  const originalNotes = notes.flatMap((note) => {
+    const label = originalLabel.exec(str.slice(note.start, note.end));
+    return label ? [{ start: note.start + label[0].length, end: note.end }] : [];
+  });
+  let originalAmount: FieldSpan | undefined;
+  if (originalNotes.length === 1) {
+    const { start, end } = originalNotes[0];
+    const payload = str.slice(start, end);
+    const [value, ...qualifiers] = payload.split("|");
+    // Parse the whole annotation value. Only recognized billing clauses can
+    // be removed, so a valid-looking substring cannot hide unreadable text.
+    const raw = qualifiers.every((clause) => billedCurrencyLabel.test(clause)) ? value : payload;
+    const trimmed = raw.trim();
+    if (trimmed) {
+      const valueStart = start + raw.indexOf(trimmed);
+      originalAmount = field({ start: valueStart, end: valueStart + trimmed.length });
+    }
+  }
+  const ambiguousOriginalAmount =
+    originalNotes.length > 1 ||
+    (originalAmount !== undefined &&
+      amounts.filter((span) => overlaps(span, originalAmount)).length > 1);
   const mainAmounts = amounts.filter((span) => overlaps(span, main));
   const hasPositionedAmounts = mainAmounts.some((span) => span.column !== undefined);
   const mainDates = dates.filter((span) => overlaps(span, main));
@@ -386,7 +402,8 @@ export function extractStatementFields(row: CandidateTransactionRow, source?: Po
     fields,
     ambiguousDates,
     ambiguousBilledAmount: !billedAmount && mainAmounts.length > 0,
-    ambiguousOriginalAmount: original.length > 1,
+    missingOriginalAmount: originalNotes.length === 1 && !originalAmount,
+    ambiguousOriginalAmount,
     columnDirection:
       billedAmount?.column === "credit" || billedAmount?.column === "debit"
         ? billedAmount.column

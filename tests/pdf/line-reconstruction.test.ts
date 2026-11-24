@@ -7,6 +7,7 @@ import {
   type ExtractedToken,
 } from "@/lib/pdf/text-extractor";
 import { lineToAnchor, reconstructDocument, reconstructPage } from "@/lib/pdf/text-reconstructor";
+import { parseDocumentCandidates } from "@/lib/pdf/transaction-parser";
 
 function statementPage(height: number, rotation = 0) {
   const width = 600;
@@ -33,6 +34,13 @@ function statementPage(height: number, rotation = 0) {
   }
 
   return { draw, page: { page: 1, width, height, rotation, tokens } satisfies ExtractedPage };
+}
+
+function parsePage(page: ReturnType<typeof reconstructPage>) {
+  return parseDocumentCandidates(
+    { pageCount: 1, pages: [page] },
+    { currency: "CAD", dateOrder: "MDY", positiveAmountDirection: "debit" },
+  ).candidates;
 }
 
 describe("visual line reconstruction", () => {
@@ -99,6 +107,9 @@ describe("visual line reconstruction", () => {
     ]);
     expect(first.lineIds).toHaveLength(3);
     expect(first.diagnostics).toContain("multiline_description");
+    expect(first.diagnostics).toContain("long_multiline");
+    expect(first.diagnostics).toContain("outside_detected_table");
+    expect(parsePage(result)[0].transaction?.reviewStatus).toBe("ready");
     expect(second.tokenIds).toEqual(["date-2", "posted-2", "merchant-2", "amount-2"]);
     expect(result.unmatchedLineIds).toContain(total?.lineId);
   });
@@ -135,6 +146,41 @@ describe("visual line reconstruction", () => {
     expect(result.candidates[0].tokenIds).toEqual(["date", "merchant", "amount"]);
     expect(result.candidates[0].diagnostics).toContain("ambiguous_continuation");
     expect(result.unmatchedLineIds).toEqual([result.lines[1].lineId]);
+    const [parsed] = parsePage(result);
+    expect(parsed).toMatchObject({
+      resolution: "unresolved",
+      status: "needs_review",
+      partial: { billedAmount: { amountMinor: "1799" }, rawDescription: "ONLINE RETAILER" },
+      sourceAnchor: { tokenIds: ["date", "merchant", "amount"] },
+    });
+    expect(parsed.transaction).toBeUndefined();
+    expect(parsed.diagnostics).toContain("ambiguous_continuation");
+  });
+
+  it("holds a candidate with an uncertain baseline grouping for review", () => {
+    const { page, draw } = statementPage(800);
+    draw("date", "09/01/2026", 48, 600, 58);
+    draw("merchant", "BOOKSTORE", 188, 600, 70);
+    draw("amount", "17.99", 442, 600, 28);
+    draw("overlap", "REFERENCE", 48, 598, 58);
+
+    const [parsed] = parsePage(reconstructPage(page));
+    expect(parsed.diagnostics).toContain("uncertain_line_grouping");
+    expect(parsed.resolution).toBe("unresolved");
+    expect(parsed.transaction).toBeUndefined();
+    expect(parsed.partial?.billedAmount?.amountMinor).toBe("1799");
+  });
+
+  it("holds an attached wrap when its description column could not be identified", () => {
+    const { page, draw } = statementPage(800);
+    draw("row", "09/01/2026 BOOKSTORE 17.99", 48, 600, 422);
+    draw("wrap", "ORDER 88421", 188, 587, 65);
+
+    const [parsed] = parsePage(reconstructPage(page));
+    expect(parsed.diagnostics).toContain("uncertain_description_column");
+    expect(parsed.resolution).toBe("unresolved");
+    expect(parsed.transaction).toBeUndefined();
+    expect(parsed.partial?.rawDescription).toBe("BOOKSTORE ORDER 88421");
   });
 });
 
