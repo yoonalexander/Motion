@@ -220,43 +220,31 @@ describe("parseAmount", () => {
 
 describe("inferTransactionType", () => {
   it("classifies refund from keyword", () => {
-    const result = inferTransactionType("REFUND RECEIVED", false, false);
+    const result = inferTransactionType("REFUND RECEIVED");
     expect(result.type).toBe("refund");
     expect(result.confident).toBe(true);
   });
 
   it("classifies payment from keyword", () => {
-    const result = inferTransactionType("PAYMENT THANK YOU", false, false);
+    const result = inferTransactionType("PAYMENT THANK YOU");
     expect(result.type).toBe("payment");
     expect(result.confident).toBe(true);
   });
 
   it("classifies fee from keyword", () => {
-    const result = inferTransactionType("LATE FEE", false, false);
+    const result = inferTransactionType("LATE FEE");
     expect(result.type).toBe("fee");
     expect(result.confident).toBe(true);
   });
 
   it("classifies deposit from keyword", () => {
-    const result = inferTransactionType("DIRECT DEPOSIT", false, false);
+    const result = inferTransactionType("DIRECT DEPOSIT");
     expect(result.type).toBe("deposit");
     expect(result.confident).toBe(true);
   });
 
-  it("defaults negative amount to purchase (not confident)", () => {
-    const result = inferTransactionType("STORE NAME", true, false);
-    expect(result.type).toBe("purchase");
-    expect(result.confident).toBe(false);
-  });
-
-  it("defaults parentheses amount to purchase (not confident)", () => {
-    const result = inferTransactionType("STORE NAME", false, true);
-    expect(result.type).toBe("purchase");
-    expect(result.confident).toBe(false);
-  });
-
-  it("defaults positive amount with no keyword to unknown (not confident)", () => {
-    const result = inferTransactionType("STORE NAME", false, false);
+  it("leaves an ordinary description unresolved when financial direction is absent", () => {
+    const result = inferTransactionType("STORE NAME");
     expect(result.type).toBe("unknown");
     expect(result.confident).toBe(false);
   });
@@ -267,7 +255,7 @@ describe("inferTransactionType", () => {
 // ---------------------------------------------------------------------------
 
 describe("extractMerchantDescription", () => {
-  it("removes date and amount from row string", () => {
+  it("uses verified spans instead of replacing repeated date or amount text", () => {
     const rawFields = {
       dateLikeMatches: ["01/15/2026"],
       amountLikeMatches: ["45.85"],
@@ -280,20 +268,21 @@ describe("extractMerchantDescription", () => {
       yearInferred: false,
       amountSignNegative: false,
       amountInParentheses: false,
+      fieldSpans: {
+        dates: [{ start: 0, end: 10, raw: "01/15/2026" }],
+        amounts: [{ start: 27, end: 32, raw: "45.85" }],
+        description: [{ start: 11, end: 26, raw: "STORE 45.85 GAP" }],
+        fxMetadata: [],
+      },
     };
-    const desc = extractMerchantDescription(
-      "01/15/2026 STORE NAME 45.85",
-      rawFields
-    );
-    expect(desc).toContain("STORE NAME");
-    expect(desc).not.toContain("01/15/2026");
-    expect(desc).not.toContain("45.85");
+    const desc = extractMerchantDescription("01/15/2026 STORE 45.85 GAP 45.85", rawFields);
+    expect(desc).toBe("STORE 45.85 GAP");
   });
 
-  it("returns trimmed description", () => {
+  it("preserves text matches when verified source spans are absent", () => {
     const rawFields = {
       dateLikeMatches: [],
-      amountLikeMatches: [],
+      amountLikeMatches: ["45.85"],
       detectedDate: null,
       detectedPostingDate: null,
       detectedAmountMinor: null,
@@ -304,8 +293,8 @@ describe("extractMerchantDescription", () => {
       amountSignNegative: false,
       amountInParentheses: false,
     };
-    const desc = extractMerchantDescription("  STORE NAME  ", rawFields);
-    expect(desc).toBe("STORE NAME");
+    const desc = extractMerchantDescription("  STORE 45.85 GAP  ", rawFields);
+    expect(desc).toBe("STORE 45.85 GAP");
   });
 });
 

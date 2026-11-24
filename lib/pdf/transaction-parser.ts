@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseAmount } from "./money-parser";
 import type { CandidateTransactionRow, PageReconstruction } from "./text-reconstructor";
 import { parseDate } from "./date-parser";
+import { inferTransactionType } from "./transaction-classifier";
 import {
   extractStatementFields,
   type ParsedFieldSpans,
@@ -25,6 +26,7 @@ import {
 } from "@/schemas/transaction";
 
 export { parseAmount } from "./money-parser";
+export { inferTransactionType } from "./transaction-classifier";
 
 const parsedStatementTransactionSchema = parsedTransactionSchema.extend({
   transactionDate: isoDateSchema,
@@ -120,76 +122,14 @@ export interface ParseResult {
 // parser assembly share the same source spans.
 
 // ---------------------------------------------------------------------------
-// Transaction type inference
-// ---------------------------------------------------------------------------
-
-const typeKeywords: readonly [TransactionType, readonly string[]][] = [
-  ["refund", ["refund", "return", "reversal", "chargeback"]],
-  ["payment", ["payment", "pay", "thank you", "autopay", "online payment"]],
-  ["fee", ["fee", "annual fee", "late fee", "service charge", "account fee"]],
-  ["interest", ["interest", "finance charge"]],
-  ["transfer", ["transfer", "balance transfer", "wire transfer"]],
-  ["deposit", ["deposit", "credit", "direct deposit"]],
-];
-
-export function inferTransactionType(
-  description: string,
-  amountSignNegative: boolean,
-  inParentheses: boolean,
-): { type: TransactionType; confident: boolean } {
-  const upper = description.toUpperCase();
-
-  // Check for explicit type keywords
-  for (const [type, keywords] of typeKeywords) {
-    for (const kw of keywords) {
-      if (upper.includes(kw.toUpperCase())) {
-        return { type, confident: true };
-      }
-    }
-  }
-
-  // Negative amount without explicit type → likely purchase or adjustment
-  if (amountSignNegative || inParentheses) {
-    return { type: "purchase", confident: false };
-  }
-
-  // Positive amount → could be payment, deposit, or refund
-  return { type: "unknown", confident: false };
-}
-
-// ---------------------------------------------------------------------------
 // Merchant description extraction
 // ---------------------------------------------------------------------------
 
 /**
- * Extracts a merchant description from a candidate row string.
- * Removes date and amount tokens, preserving multiline content.
+ * Joins the verified description spans in source order, including continuations.
  */
 export function extractMerchantDescription(rowStr: string, rawFields: RawParsedFields): string {
-  if (rawFields.fieldSpans) {
-    return rawFields.fieldSpans.description
-      .map((span) => span.raw)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  let desc = rowStr;
-
-  // Remove detected date strings
-  for (const dateStr of rawFields.dateLikeMatches) {
-    desc = desc.replace(dateStr, " ").trim();
-  }
-
-  // Remove detected amount strings
-  for (const amountStr of rawFields.amountLikeMatches) {
-    desc = desc.replace(amountStr, " ").trim();
-  }
-
-  // Collapse whitespace
-  desc = desc.replace(/\s+/g, " ").trim();
-
-  return desc;
+  return rawFields.fieldSpans?.description.map((span) => span.raw).join(" ") ?? rowStr.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -342,22 +282,26 @@ export function parseCandidateRow(
   const merchantDesc = extractMerchantDescription(row.str, rawFields);
   rawFields.detectedMerchant = merchantDesc;
 
-  const { amountSignNegative, amountInParentheses } = rawFields;
-  const typeInfo = inferTransactionType(merchantDesc, amountSignNegative, amountInParentheses);
-  rawFields.detectedType = typeInfo.type;
-  const transactionType =
-    typeInfo.confident && typeInfo.type !== "unknown" ? typeInfo.type : undefined;
-
   let direction = rawFields.amountDirection ?? undefined;
   if (!direction && money && !flags.includes("ambiguous_direction")) {
     const positiveDirection = context.positiveAmountDirection;
     if (positiveDirection && money.amountMinor !== "0") {
       const negativeDirection = positiveDirection === "credit" ? "debit" : "credit";
-      direction = amountSignNegative ? negativeDirection : positiveDirection;
+      direction = rawFields.amountSignNegative ? negativeDirection : positiveDirection;
     } else {
       flags.push("ambiguous_direction");
       diagnostics.push("unresolved_amount_direction");
     }
+  }
+
+  const typeInfo = inferTransactionType(merchantDesc, direction);
+  rawFields.detectedType = typeInfo.type;
+  const transactionType = typeInfo.confident ? typeInfo.type : undefined;
+  if (!merchantDesc) {
+    diagnostics.push("missing_source_description");
+  } else if (!typeInfo.confident) {
+    flags.push("ambiguous_transaction_type");
+    diagnostics.push(typeInfo.diagnostic);
   }
 
   const sourceAnchor = { page: row.page, bbox: row.bbox, tokenIds: row.tokenIds };
@@ -386,12 +330,6 @@ export function parseCandidateRow(
     direction,
   };
 
-  if (!merchantDesc) {
-    diagnostics.push("missing_source_description");
-  } else if (!transactionType) {
-    diagnostics.push("unresolved_transaction_type");
-  }
-
   let status: UnresolvedCandidate["status"] = "partially_parsed";
   if (!transactionDate && !money && !merchantDesc) {
     status = "unable_to_interpret";
@@ -414,7 +352,7 @@ export function parseCandidateRow(
       transactionDate,
       postingDate: postingDate ?? undefined,
       rawDescription: merchantDesc,
-      normalizedMerchant: merchantDesc,
+      normalizedMerchant: merchantDesc.replace(/\s+/g, " "),
       transactionType,
       direction,
       billedAmount: money,

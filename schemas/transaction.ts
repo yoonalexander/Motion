@@ -67,6 +67,7 @@ export const reviewStatusSchema = z.enum(["ready", "needs_review", "skip", "appr
 export const classificationFlagSchema = z.enum([
   "ambiguous_date",
   "ambiguous_direction",
+  "ambiguous_transaction_type",
   "ambiguous_amount",
   "missing_amount",
   "unmatched_source",
