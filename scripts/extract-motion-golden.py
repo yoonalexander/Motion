@@ -167,7 +167,7 @@ def main() -> None:
         "sourceSha256": digest,
         "provenance": "Derived offline from the source PDF's printed text and table coordinates with pypdf 6.7.4; see docs/testing.md, Motion golden provenance. Type labels are classified from printed descriptions and signed amounts. Original-currency annotations are not substituted for billed CAD amounts.",
     }
-    OUTPUT.write_text(json.dumps(output, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    OUTPUT.write_bytes((json.dumps(output, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
     print(f"Wrote {OUTPUT.relative_to(ROOT)}: {len(transactions)} rows, +{positive_minor} / {negative_minor} minor units, SHA-256 {digest}")
 
 

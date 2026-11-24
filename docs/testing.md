@@ -24,6 +24,7 @@ environment and run:
 ```powershell
 python scripts/extract-motion-golden.py
 npx prettier --write tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json
+npx prettier --write tests/fixtures/synthetic/motion-synthetic-credit-card-statement.json
 ```
 
 The script checks the source digest, reads text with pypdf's visitor callback,
