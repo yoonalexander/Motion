@@ -49,6 +49,10 @@ const currencyExponents = new Map(
   ),
 );
 
+export function isSupportedCurrencyCode(code: string): boolean {
+  return currencyExponents.has(code.toUpperCase());
+}
+
 const currencySymbols: Record<string, readonly string[]> = {
   $: [
     "ARS",
